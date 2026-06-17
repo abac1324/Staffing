@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v58</title>
+<title>Abac Capital — Registro de horas (demo) · v59</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1453,6 +1453,7 @@ function enter(){
   enterAsUser(found);
 }
 function enterAsUser(found){
+  try{ sessionStorage.removeItem('msTried'); }catch(e){}
   state.user=found;
   const pi=DATA.people.findIndex(x=>x.nombre.toLowerCase()===found.user.toLowerCase());
   state.person=pi>=0?pi:0;
@@ -1468,14 +1469,25 @@ function enterAsUser(found){
 function loginMsg(m){const e=document.getElementById('loginErr');if(e){e.textContent=m;e.style.display='block';}}
 async function loginMicrosoft(){
   if(!sb||!sb.auth){loginMsg('Sin conexión a Supabase.');return;}
+  try{ sessionStorage.setItem('msTried','1'); }catch(e){}
   const {error}=await sb.auth.signInWithOAuth({provider:'azure',options:{scopes:'email',redirectTo:location.origin+location.pathname}});
   if(error)loginMsg('No se pudo iniciar sesión con Microsoft: '+error.message);
 }
 let autoRedirected=false;
 function noSessionUI(){
-  const inCallback=/access_token=|[?&]code=/.test(location.hash+location.search);
   if(location.protocol==='file:'){ const pw=document.getElementById('pwLogin'); if(pw)pw.style.display='block'; return; }
-  if(inCallback||autoRedirected)return;
+  // ¿volvemos de Microsoft con error, o de un intento que no completó? -> no re-redirigir (evita bucle)
+  const raw=(location.hash.replace(/^#/,''))+'&'+(location.search.replace(/^\?/,''));
+  let errDesc=''; try{ const p=new URLSearchParams(raw); errDesc=p.get('error_description')||p.get('error')||''; }catch(e){}
+  let tried=false; try{ tried=sessionStorage.getItem('msTried')==='1'; }catch(e){}
+  if(errDesc||tried){
+    try{ sessionStorage.removeItem('msTried'); }catch(e){}
+    const bb=document.getElementById('msBtn'); if(bb)bb.style.display='';
+    const rr=document.getElementById('msRedirect'); if(rr)rr.style.display='none';
+    loginMsg(errDesc ? ('Microsoft: '+errDesc) : 'No se completó el inicio con Microsoft. Falta conceder el consentimiento del administrador en Azure (o tu email no está dado de alta). Concédelo y pulsa «Entrar con Microsoft».');
+    return;
+  }
+  if(autoRedirected)return;
   autoRedirected=true;
   const b=document.getElementById('msBtn'); if(b)b.style.display='none';
   const r=document.getElementById('msRedirect'); if(r)r.style.display='block';
@@ -1500,6 +1512,7 @@ function logout(){
   document.getElementById('app').style.display='none';
   document.getElementById('login').classList.remove('hidden');
   autoRedirected=true; // tras cerrar sesión manualmente, NO redirigir solo (evita bucle)
+  try{ sessionStorage.removeItem('msTried'); }catch(e){}
   const b=document.getElementById('msBtn'); if(b)b.style.display='';
   const r=document.getElementById('msRedirect'); if(r)r.style.display='none';
   const e=document.getElementById('loginErr'); if(e)e.style.display='none';
