@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v87</title>
+<title>Abac Capital — Registro de horas (demo) · v89</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -988,21 +988,21 @@ function render_resumen(){
   const ppl=state.resPerson?DATA.people.filter(p=>p.nombre===state.resPerson):DATA.people;
   const ff=r=>!state.resFund||r.f===state.resFund;
   const fp=r=>!(state.resProjects&&state.resProjects.length)||state.resProjects.includes(r.proy);
-  function effIn(a,b){const A=new Date(a),B=new Date(b),byP={};
+  function effIn(a,b,wkOnly){const A=new Date(a),B=new Date(b),byP={};
     (SB.entries||[]).forEach(e=>{let inc=false,md=null;
       if(e.tipo_periodo==='semanal'&&e.semana_inicio){const d=pdate(e.semana_inicio);inc=(d>=A&&d<=B);md=d;}
-      else if(e.tipo_periodo==='mensual'){const mo=monthOfEntry(e);if(mo){const ms=new Date(mo.y,mo.m-1,1),me=new Date(mo.y,mo.m,0);inc=(ms<=B&&me>=A);md=ms;}}
+      else if(!wkOnly && e.tipo_periodo==='mensual'){const mo=monthOfEntry(e);if(mo){const ms=new Date(mo.y,mo.m-1,1),me=new Date(mo.y,mo.m,0);inc=(ms<=B&&me>=A);md=ms;}}
       if(!inc)return;
       const rv=(e.real_horas!=null&&String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas);
       (byP[e.persona]=byP[e.persona]||[]).push({proy:e.proyecto,f:normFondo(e.fond),e:rv,mk:(md?md.getFullYear()*12+md.getMonth():0)});
     });return byP;}
-  const byP=effIn(from,to);
+  const byP=effIn(from,to,isWeek);
   const rfP=name=>(byP[name]||[]).filter(r=>ff(r)&&fp(r));
   const present=name=>rfP(name).length>0;
-  const per=ppl.map(p=>{const rs=rfP(p.nombre);const h=rs.reduce((a,b)=>a+b.e,0);return{...p,h,pct:Math.round(h/cap*100)};}).filter(p=>state.resPerson||present(p.nombre));
+  const per=ppl.map(p=>{const rs=rfP(p.nombre);const h=rs.reduce((a,b)=>a+b.e,0);const beach=rs.filter(r=>(r.proy||'').toLowerCase().includes('beach')).reduce((a,b)=>a+b.e,0);const comm=Math.max(0,h-beach);return{...p,h,beach,comm,pct:Math.round(comm/cap*100)};}).filter(p=>state.resPerson||present(p.nombre));
   const totalH=Math.round(per.reduce((a,b)=>a+b.h,0));
   const lenMs=to-from; const pTo=new Date(from.getTime()-86400000); const pFrom=new Date(pTo.getTime()-lenMs);
-  const byPprev=effIn(pFrom,pTo);
+  const byPprev=effIn(pFrom,pTo,isWeek);
   const prevTot=ppl.reduce((a,p)=>a+(byPprev[p.nombre]||[]).filter(r=>ff(r)&&fp(r)).reduce((x,r)=>x+r.e,0),0);
   const delta=prevTot?Math.round((totalH-prevTot)/prevTot*100):0;
   const activas=per.filter(p=>p.h>0).length;
@@ -1016,7 +1016,8 @@ function render_resumen(){
   const monthKeys=Object.keys(monthsMap).map(Number).sort((a,b)=>a-b);
   const mkLabel=k=>mesAbbr[k%12]+' '+String(Math.floor(k/12)).slice(2);
   const allFunds=Array.from(new Set([].concat.apply([],ppl.map(p=>rfP(p.nombre).map(r=>r.f)))));
-  const estado=p=>p.pct>100?'<span class="badge red">Saturado</span>':p.pct>=80?'<span class="badge gray" style="background:none;padding-left:0">Óptimo</span>':'<span class="badge lblue">Disponible</span>';
+  const estado=p=>p.pct>100?'<span class="badge red">Saturado</span>':p.pct>=100?'<span class="badge gray" style="background:none;padding-left:0">Óptimo</span>':'<span class="badge lblue">Disponible</span>';
+  const minW=Math.max(0,DATA.weeks.length-1-12);
   const allProjNames=DATA.catalog.map(c=>c.nombre).slice().sort(cmpProj);
   const mq=(state.resProjQ||'').toLowerCase();
   const projOpts=allProjNames.filter(n=>n.toLowerCase().includes(mq));
@@ -1032,7 +1033,7 @@ function render_resumen(){
   document.getElementById('view').innerHTML=`
     <div class="topbar"><h1>Resumen</h1>
       <div class="hseg"><button class="${mode==='semana'?'on':''}" onclick="state.resRange='semana';state.anim={sel:'.card',stagger:true};render()">Semana</button><button class="${mode==='mes'?'on':''}" onclick="state.resRange='mes';state.anim={sel:'.card',stagger:true};render()">Último mes</button><button class="${mode==='3m'?'on':''}" onclick="state.resRange='3m';state.anim={sel:'.card',stagger:true};render()">Últimos 3 meses</button><button class="${mode==='6m'?'on':''}" onclick="state.resRange='6m';state.anim={sel:'.card',stagger:true};render()">Últimos 6 meses</button><button class="${mode==='ano'?'on':''}" onclick="state.resRange='ano';state.anim={sel:'.card',stagger:true};render()">Último año</button><button class="${mode==='hist'?'on':''}" onclick="state.resRange='hist';state.anim={sel:'.card',stagger:true};render()">Histórico</button></div>
-      ${isWeek?`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.resWeek<=0?'disabled':''} onclick="state.resWeek=Math.max(0,state.resWeek-1);state.anim={sel:'.card',stagger:true};render()" title="Semana anterior">‹</button>`+ddMount({variant:'pill',value:weekLong(wk),options:DATA.weeks.map(weekLong),onChange:v=>{state.resWeek=DATA.weeks.findIndex(s=>weekLong(s)===v);state.anim={sel:'.card',stagger:true};render();}})+`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-left:6px" ${state.resWeek>=DATA.weeks.length-1?'disabled':''} onclick="state.resWeek=Math.min(DATA.weeks.length-1,state.resWeek+1);state.anim={sel:'.card',stagger:true};render()" title="Semana siguiente">›</button>`:''}
+      ${isWeek?`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.resWeek<=minW?'disabled':''} onclick="state.resWeek=Math.max(minW,state.resWeek-1);state.anim={sel:'.card',stagger:true};render()" title="Semana anterior">‹</button>`+ddMount({variant:'pill',value:weekLong(wk),options:DATA.weeks.slice(minW).map(weekLong),onChange:v=>{state.resWeek=DATA.weeks.findIndex(s=>weekLong(s)===v);state.anim={sel:'.card',stagger:true};render();}})+`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-left:6px" ${state.resWeek>=DATA.weeks.length-1?'disabled':''} onclick="state.resWeek=Math.min(DATA.weeks.length-1,state.resWeek+1);state.anim={sel:'.card',stagger:true};render()" title="Semana siguiente">›</button>`:''}
       ${ddMount({variant:'pill',value:state.resPerson||'Toda la plantilla',options:['Toda la plantilla',...DATA.people.filter(p=>p.activo!==false&&roleFromTabs(p.tabs)==='Trabajador').map(p=>p.nombre)],onChange:v=>{state.resPerson=(v==='Toda la plantilla'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${ddMount({variant:'pill',value:state.resFund||'Todos los fondos',options:['Todos los fondos',...Array.from(new Set(DATA.rows.map(r=>r.f)))],onChange:v=>{state.resFund=(v==='Todos los fondos'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${projMsel}
@@ -1052,7 +1053,7 @@ function render_resumen(){
           const open=(state.cargaOpen&&state.cargaOpen[p.nombre])||(state.resPerson&&state.resPerson===p.nombre);
           const m={};rfP(p.nombre).forEach(r=>{m[r.proy]=(m[r.proy]||0)+r.e;});const arr=Object.entries(m).sort((a,b)=>b[1]-a[1]);
           const detail=`<div class="ct-detail">${arr.length?arr.map(([pr,h])=>`<div class="ctd-row"><span class="p">${esc(pr)}</span><span class="h">${h}h</span></div>`).join(''):'<div class="ctd-empty">Sin horas registradas en este periodo</div>'}</div>`;
-          return `<div class="ct-row clickable ${open?'open':''}" data-p="${esc(p.nombre)}" onclick="toggleCarga(this)"><div class="nm"><span class="cv">${I.chev}</span>${esc(p.nombre)}</div><div>${p.h}h</div>
+          return `<div class="ct-row clickable ${open?'open':''}" data-p="${esc(p.nombre)}" onclick="toggleCarga(this)"><div class="nm"><span class="cv">${I.chev}</span>${esc(p.nombre)}</div><div>${p.comm}h</div>
           <div class="carga"><div class="bar"><i class="${p.pct>100?'over':''}" style="width:${Math.min(p.pct,100)}%"></i></div><div class="pct ${p.pct>100?'over':''}">${p.pct}%</div></div>
           <div>${estado(p)}</div></div>${detail}`;}).join('')}
       </div>
