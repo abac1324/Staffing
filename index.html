@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v86</title>
+<title>Abac Capital — Registro de horas (demo) · v87</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -993,7 +993,7 @@ function render_resumen(){
       if(e.tipo_periodo==='semanal'&&e.semana_inicio){const d=pdate(e.semana_inicio);inc=(d>=A&&d<=B);md=d;}
       else if(e.tipo_periodo==='mensual'){const mo=monthOfEntry(e);if(mo){const ms=new Date(mo.y,mo.m-1,1),me=new Date(mo.y,mo.m,0);inc=(ms<=B&&me>=A);md=ms;}}
       if(!inc)return;
-      const rv=(e.real_horas!=null&&String(e.real_horas).trim()!==''&&toNum(e.real_horas)>0)?toNum(e.real_horas):toNum(e.forecast_horas);
+      const rv=(e.real_horas!=null&&String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas);
       (byP[e.persona]=byP[e.persona]||[]).push({proy:e.proyecto,f:normFondo(e.fond),e:rv,mk:(md?md.getFullYear()*12+md.getMonth():0)});
     });return byP;}
   const byP=effIn(from,to);
@@ -1440,7 +1440,7 @@ function rangeRows(fromStr,toStr){
     let include=false;
     if(e.tipo_periodo==='semanal' && e.semana_inicio){ const d=pdate(e.semana_inicio); include = (d>=a && d<=b); }
     else if(e.tipo_periodo==='mensual'){ const mo=monthOfEntry(e); if(mo){ const ms=new Date(mo.y,mo.m-1,1), me=new Date(mo.y,mo.m,0); include = (ms<=b && me>=a); } }
-    if(include){ const rv=(e.real_horas!=null && String(e.real_horas).trim()!==''&&toNum(e.real_horas)>0)?toNum(e.real_horas):toNum(e.forecast_horas); out.push({p:e.persona, proy:e.proyecto, e:toNum(e.forecast_horas), r:rv, f:normFondo(e.fond)}); }
+    if(include){ const rv=(e.real_horas!=null && String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas); out.push({p:e.persona, proy:e.proyecto, e:toNum(e.forecast_horas), r:rv, f:normFondo(e.fond)}); }
   });
   return out;
 }
@@ -1727,7 +1727,7 @@ async function fetchAllSB(table, cols){
 function rebuildCatalog(){
   const horas={}, years={};
   for(const e of SB.entries){
-    const rv=(e.real_horas!=null&&String(e.real_horas).trim()!==''&&toNum(e.real_horas)>0)?toNum(e.real_horas):toNum(e.forecast_horas);
+    const rv=(e.real_horas!=null&&String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas);
     horas[e.proyecto]=(horas[e.proyecto]||0)+rv;
     if(e.anio){ (years[e.proyecto]=years[e.proyecto]||new Set()).add(String(e.anio)); }
   }
