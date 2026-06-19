@@ -772,12 +772,13 @@ let defPerson=Math.max(0,DATA.people.findIndex(p=>p.nombre==='Miquel Petit'));
 let state={screen:'semana',person:defPerson,week:LAST,reales:[],prevision:[],resWeek:LAST,consulta:Math.max(0,LAST-1),catalog:JSON.parse(JSON.stringify(DATA.catalog)),page:0,q:'',ffondo:'',order:'A-Z',fvert:'',fyear:'',fstatus:'',advOpen:false,resPerson:'',resFund:'',resProjects:[],resProjOpen:false,resProjQ:'',resRange:'semana',cargaOpen:{},histMode:'semana',histRange:4,tablaMode:'semana',tablaWeek:LAST,tablaFrom:'',tablaTo:'',charts:[]};
 /* ---- Cuentas demo (contraseña "demo" para todos). Solo demo: el control real iría en el servidor. ---- */
 /* roles y accesos: el acceso real son las "tabs"; el rol es una etiqueta derivada */
-const TAB_PRESETS={Trabajador:['semana','tabla'],Manager:['semana','tabla','resumen','proyectos'],Admin:['semana','tabla','resumen','proyectos','team']};
+const TAB_PRESETS={Trabajador:['semana','tabla'],'VP / Director':['semana','tabla','resumen','proyectos'],Manager:['semana','tabla','resumen','proyectos'],Admin:['semana','tabla','resumen','proyectos','team']};
 function roleFromTabs(tabs){tabs=tabs||[];if(tabs.includes('team'))return 'Admin';if(tabs.includes('resumen')||tabs.includes('proyectos'))return 'Manager';return 'Trabajador';}
 function roleOf(p){return (p&&p.rol)?p.rol:roleFromTabs(p&&p.tabs);}
+function fichaOf(p){if(p&&p.ficha!=null)return !!p.ficha;const r=roleOf(p);return r==='Trabajador'||r==='VP / Director';}
 function normName(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).sort().join(' ');}
 function parseTabs(s){if(Array.isArray(s))return s.slice();if(!s)return ['semana','tabla'];return String(s).split(',').map(x=>x.trim()).filter(Boolean);}
-function userFromPerson(p){const tabs=parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla');if(!tabs.includes('semana'))tabs.unshift('semana');return {user:p.nombre,cr:p.cr,active:(p.activo!==false),pass:p.pass||'Prueba2026',email:(p.email||''),rol:(p.rol||null),role:(p.rol||roleFromTabs(tabs)),tabs};}
+function userFromPerson(p){const tabs=parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla');if(!tabs.includes('semana'))tabs.unshift('semana');return {user:p.nombre,cr:p.cr,active:(p.activo!==false),pass:p.pass||'Prueba2026',email:(p.email||''),rol:(p.rol||null),role:(p.rol||roleFromTabs(tabs)),ficha:(p.ficha==null?null:!!p.ficha),tabs};}
 /* login 100% desde Supabase: sin usuarios hardcodeados */
 let USERS=[];
 state.user=null;
@@ -886,7 +887,7 @@ function render_semana(){
   const rt=realesTotal();
   document.getElementById('view').innerHTML=`
     <div class="topbar">
-      <h1>Mi semana — ${(state.user&&state.user.role==='Trabajador')?esc(DATA.people[state.person].nombre):ddMount({variant:'inline',value:DATA.people[state.person].nombre,options:DATA.people.filter(p=>p.activo!==false&&roleOf(p)==='Trabajador').map(p=>p.nombre),onChange:v=>{state.person=DATA.people.findIndex(p=>p.nombre===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}</h1>
+      <h1>Mi semana — ${(state.user&&state.user.role==='Trabajador')?esc(DATA.people[state.person].nombre):ddMount({variant:'inline',value:DATA.people[state.person].nombre,options:DATA.people.filter(p=>p.activo!==false&&fichaOf(p)).map(p=>p.nombre),onChange:v=>{state.person=DATA.people.findIndex(p=>p.nombre===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}</h1>
       <button class="pill" style="display:none"></button>
       <button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.week<=0?'disabled':''} onclick="semanaNav(-1)" title="Semana anterior">‹</button>
       ${ddMount({variant:'pill',value:weekOptLabel(state.week),options:ALLWEEKS.slice(0,LAST+2).map((s,i)=>weekOptLabel(i)),onChange:v=>{state.week=ALLWEEKS.findIndex((s,i)=>weekOptLabel(i)===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}
@@ -1043,7 +1044,7 @@ function render_resumen(){
     <div class="topbar"><h1>Resumen</h1>
       <div class="hseg"><button class="${mode==='semana'?'on':''}" onclick="state.resRange='semana';state.anim={sel:'.card',stagger:true};render()">Semana</button><button class="${mode==='mes'?'on':''}" onclick="state.resRange='mes';state.anim={sel:'.card',stagger:true};render()">Último mes</button><button class="${mode==='3m'?'on':''}" onclick="state.resRange='3m';state.anim={sel:'.card',stagger:true};render()">Últimos 3 meses</button><button class="${mode==='6m'?'on':''}" onclick="state.resRange='6m';state.anim={sel:'.card',stagger:true};render()">Últimos 6 meses</button><button class="${mode==='ano'?'on':''}" onclick="state.resRange='ano';state.anim={sel:'.card',stagger:true};render()">Último año</button><button class="${mode==='hist'?'on':''}" onclick="state.resRange='hist';state.anim={sel:'.card',stagger:true};render()">Histórico</button></div>
       ${isWeek?`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.resWeek<=minW?'disabled':''} onclick="state.resWeek=Math.max(Math.max(0,DATA.weeks.length-13),state.resWeek-1);state.anim={sel:'.card',stagger:true};render()" title="Semana anterior">‹</button>`+ddMount({variant:'pill',value:weekLong(wk),options:DATA.weeks.slice(minW).map(weekLong),onChange:v=>{state.resWeek=DATA.weeks.findIndex(s=>weekLong(s)===v);state.anim={sel:'.card',stagger:true};render();}})+`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-left:6px" ${state.resWeek>=DATA.weeks.length-1?'disabled':''} onclick="state.resWeek=Math.min(DATA.weeks.length-1,state.resWeek+1);state.anim={sel:'.card',stagger:true};render()" title="Semana siguiente">›</button>`:''}
-      ${ddMount({variant:'pill',value:state.resPerson||'Toda la plantilla',options:['Toda la plantilla',...DATA.people.filter(p=>p.activo!==false&&roleOf(p)==='Trabajador').map(p=>p.nombre)],onChange:v=>{state.resPerson=(v==='Toda la plantilla'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
+      ${ddMount({variant:'pill',value:state.resPerson||'Toda la plantilla',options:['Toda la plantilla',...DATA.people.filter(p=>p.activo!==false&&fichaOf(p)).map(p=>p.nombre)],onChange:v=>{state.resPerson=(v==='Toda la plantilla'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${ddMount({variant:'pill',value:state.resFund||'Todos los fondos',options:['Todos los fondos',...Array.from(new Set(DATA.rows.map(r=>r.f)))],onChange:v=>{state.resFund=(v==='Todos los fondos'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${projMsel}
       <div class="spacer"></div>
@@ -1240,13 +1241,25 @@ function toggleTab(i,tab){
   state.anim={sel:'.tm-row',stagger:false};render();
   persistTabs(u.user,u.tabs);
 }
+function fichaDefault(role){return role==='Trabajador'||role==='VP / Director';}
 function setRole(i,role){
   const u=USERS[i];
   u.role=role; u.rol=role;
-  const dp=DATA.people.find(x=>x.nombre===u.user); if(dp)dp.rol=role;
-  if(state.user&&state.user.user===u.user){state.user.role=role;renderNav();}
+  u.tabs=(TAB_PRESETS[role]||TAB_PRESETS.Trabajador).slice();
+  u.ficha=fichaDefault(role);
+  const dp=DATA.people.find(x=>x.nombre===u.user); if(dp){dp.rol=role;dp.tabs=u.tabs.slice();dp.ficha=u.ficha;}
+  if(state.user&&state.user.user===u.user){state.user.role=role;state.user.tabs=u.tabs.slice();state.user.ficha=u.ficha;renderNav();}
   state.anim={sel:'.tm-row',stagger:false};render();
-  persistRole(u.user,role);
+  persistRole(u.user,role);persistTabs(u.user,u.tabs);persistFicha(u.user,u.ficha);
+}
+function toggleFicha(i){
+  const u=USERS[i];
+  const cur=(u.ficha!=null)?!!u.ficha:fichaDefault(roleOf(u));
+  u.ficha=!cur;
+  const dp=DATA.people.find(x=>x.nombre===u.user); if(dp)dp.ficha=u.ficha;
+  if(state.user&&state.user.user===u.user)state.user.ficha=u.ficha;
+  state.anim={sel:'.tm-row',stagger:false};render();
+  persistFicha(u.user,u.ficha);
 }
 async function persistRole(name,role){
   const dp=DATA.people.find(x=>x.nombre===name); if(dp)dp.rol=role;
@@ -1254,6 +1267,14 @@ async function persistRole(name,role){
     const {error}=await sb.from('people').update({rol:role}).eq('nombre',name);
     if(error){toast('No se pudo guardar el rol: '+error.message+(/rol/.test(error.message)?' — ¿corriste el SQL de la columna rol?':''));return;}
     const sp=SB.people.find(x=>x.nombre===name); if(sp)sp.rol=role;
+  }
+}
+async function persistFicha(name,val){
+  const dp=DATA.people.find(x=>x.nombre===name); if(dp)dp.ficha=val;
+  if(sb&&SB.loaded){
+    const {error}=await sb.from('people').update({ficha:val}).eq('nombre',name);
+    if(error){toast('No se pudo guardar (rellena horas): '+error.message+(/ficha/.test(error.message)?' — ¿corriste el SQL de la columna ficha?':''));return;}
+    const sp=SB.people.find(x=>x.nombre===name); if(sp)sp.ficha=val;
   }
 }
 async function setCR(i,val){
@@ -1318,22 +1339,22 @@ async function quitarPersona(i){
   state.anim={sel:'.tm-row',stagger:false};render();toast('Persona quitada');
 }
 function render_team(){
-  const order={Admin:0,Manager:1,Trabajador:2};
+  const order={Admin:0,'VP / Director':1,Manager:2,Trabajador:3};
   const tf=state.teamFilter||'Todos';
   const all=USERS.map((u,i)=>({u,i}));
   const activosAll=all.filter(x=>x.u.active!==false).sort((a,b)=>(order[a.u.role]-order[b.u.role])||a.u.user.localeCompare(b.u.user));
-  const cnt={Admin:0,Manager:0,Trabajador:0};activosAll.forEach(x=>{cnt[x.u.role]=(cnt[x.u.role]||0)+1;});
+  const cnt={Admin:0,'VP / Director':0,Manager:0,Trabajador:0};activosAll.forEach(x=>{cnt[x.u.role]=(cnt[x.u.role]||0)+1;});
   const matchTF=u=>tf==='Todos'||u.role===tf;
   const activos=activosAll.filter(x=>matchTF(x.u));
   const antiguos=all.filter(x=>x.u.active===false&&matchTF(x.u)).sort((a,b)=>a.u.user.localeCompare(b.u.user));
   const chip=(i,tab)=>{const u=USERS[i];const on=u.tabs.includes(tab);const lk=tab==='semana';
     return `<span class="tm-chip ${on?'on':''} ${lk?'lock':''}" ${lk?'':`onclick="toggleTab(${i},'${tab}')"`}><span class="dot"></span>${TABS[tab][0]}</span>`;};
-  const crField=(u,i)=>(u.role==='Trabajador'||u.cr)?` <input class="tm-cr-input" value="${esc(u.cr||'')}" placeholder="CR—" onchange="setCR(${i},this.value)">`:'';
+  const crField=(u,i)=>(fichaOf(u)||u.cr)?` <input class="tm-cr-input" value="${esc(u.cr||'')}" placeholder="CR—" onchange="setCR(${i},this.value)">`:'';
   const activeRow=({u,i})=>`
     <div class="tm-row">
       <div class="tm-user"><div class="tm-av">${esc(u.user[0].toUpperCase())}</div>
-        <div><div class="tm-name">${esc(u.user)}${crField(u,i)}</div>${ddMount({variant:'pill',value:u.role,options:['Trabajador','Manager','Admin'],onChange:v=>{setRole(i,v);}})}</div></div>
-      <div class="tm-chips">${chip(i,'semana')}${chip(i,'resumen')}${chip(i,'proyectos')}${chip(i,'team')}${chip(i,'tabla')}</div>
+        <div><div class="tm-name">${esc(u.user)}${crField(u,i)}</div>${ddMount({variant:'pill',value:u.role,options:['Trabajador','VP / Director','Manager','Admin'],onChange:v=>{setRole(i,v);}})}</div></div>
+      <div class="tm-chips">${chip(i,'semana')}${chip(i,'resumen')}${chip(i,'proyectos')}${chip(i,'team')}${chip(i,'tabla')}<span style="width:1px;height:22px;background:#e2e2e2;margin:0 6px;display:inline-block;vertical-align:middle"></span><span class="tm-chip ${fichaOf(u)?'on':''}" title="¿Rellena las horas en Mi semana? (Trabajadores y VP/Director sí; Managers y Admins no)" onclick="toggleFicha(${i})"><span class="dot"></span>Rellena horas</span></div>
       <div class="tm-actions"><button class="tm-baja-btn" onclick="toggleBaja(${i})">Dar de baja</button></div>
     </div>`;
   const oldRow=({u,i})=>`
@@ -1355,6 +1376,7 @@ function render_team(){
         <button class="${tf==='Todos'?'on':''}" onclick="state.teamFilter='Todos';render()">Todos (${activosAll.length})</button>
         <button class="${tf==='Admin'?'on':''}" onclick="state.teamFilter='Admin';render()">Admin (${cnt.Admin||0})</button>
         <button class="${tf==='Manager'?'on':''}" onclick="state.teamFilter='Manager';render()">Manager (${cnt.Manager||0})</button>
+        <button class="${tf==='VP / Director'?'on':''}" onclick="state.teamFilter='VP / Director';render()">VP / Dir (${cnt['VP / Director']||0})</button>
         <button class="${tf==='Trabajador'?'on':''}" onclick="state.teamFilter='Trabajador';render()">Trabajador (${cnt.Trabajador||0})</button>
       </div>
       <div class="spacer"></div>
@@ -1786,8 +1808,7 @@ function exportTabla(mode){
   else {const wk=W[Math.min(Math.max(state.tablaWeek,0),W.length-1)];weeks=[wk];title='Semana '+fmt(wk);}
   if(mode!=='custom' && !weeks.length){toast('Sin datos en ese rango');return;}
   const esc2=s=>(''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const EXCL_STAFF=['Gonzalo Saavedra','Laura Subías','Pol Ferrer'].map(normName);
-  const data=DATA.people.filter(p=>roleOf(p)==='Trabajador'&&EXCL_STAFF.indexOf(normName(p.nombre))<0).map(p=>{
+  const data=DATA.people.filter(p=>roleOf(p)==='Trabajador').map(p=>{
     const rs = (mode==='custom') ? (rowsByPerson[p.nombre]||[]) : weeks.flatMap(w=>rowsFor(p.nombre,w));const cats={MMF:{},Horizon:{},Other:{}};
     rs.forEach(r=>{const c=fc(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=r.r;});
     const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
@@ -1823,8 +1844,8 @@ function enterAsUser(found){
   state.user=found;
   const pi=DATA.people.findIndex(x=>x.nombre.toLowerCase()===found.user.toLowerCase());
   state.person=pi>=0?pi:0;
-  if(found.role!=='Trabajador'){
-    const ti=DATA.people.findIndex(p=>p.activo!==false && roleOf(p)==='Trabajador');
+  if(!fichaOf(found)){
+    const ti=DATA.people.findIndex(p=>p.activo!==false && fichaOf(p));
     if(ti>=0)state.person=ti;
   }
   state.screen=found.tabs.includes('semana')?'semana':found.tabs[0];
@@ -1844,7 +1865,7 @@ function demoSwitcher(){
     document.getElementById('demoSwitch').addEventListener('change',function(){demoSwitch(this.value);});
   }
   sel=document.getElementById('demoSwitch');
-  const ord={Admin:0,Manager:1,Trabajador:2};
+  const ord={Admin:0,'VP / Director':1,Manager:2,Trabajador:3};
   const ppl=DATA.people.filter(p=>p.activo!==false).map(p=>({n:p.nombre,r:roleOf(p)})).sort((a,b)=>(ord[a.r]-ord[b.r])||a.n.localeCompare(b.n,'es'));
   const cur=state.user?state.user.user:'';
   sel.innerHTML=ppl.map(p=>`<option value="${esc(p.n)}"${p.n===cur?' selected':''}>${esc(p.n)} · ${p.r}</option>`).join('');
@@ -1997,7 +2018,7 @@ function rebuildCatalog(){
 
 /* trae people; si la columna activo aún no existe, reintenta sin ella */
 async function fetchPeople(){
-  const tries=['nombre,criterio,activo,password,tabs,email,rol','nombre,criterio,activo,password,tabs,email','nombre,criterio,activo,password,tabs','nombre,criterio,activo','nombre,criterio'];
+  const tries=['nombre,criterio,activo,password,tabs,email,rol,ficha','nombre,criterio,activo,password,tabs,email,rol','nombre,criterio,activo,password,tabs,email','nombre,criterio,activo,password,tabs','nombre,criterio,activo','nombre,criterio'];
   for(const cols of tries){
     try{ return await fetchAllSB('people',cols); }
     catch(e){ console.warn('people fetch sin ['+cols+']:', e.message); }
@@ -2012,7 +2033,7 @@ async function fetchEntries(){
 
 /* construye la capa de datos en variables LOCALES (sin tocar DATA todavia) */
 function buildLayerFromSB(){
-  const people = (SB.people||[]).map(p=>({nombre:p.nombre, cr:p.criterio||'', activo:(p.activo!==false), pass:(p.password||'Prueba2026'), email:(p.email||''), rol:(p.rol||null), tabs:parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla')}));
+  const people = (SB.people||[]).map(p=>({nombre:p.nombre, cr:p.criterio||'', activo:(p.activo!==false), pass:(p.password||'Prueba2026'), email:(p.email||''), rol:(p.rol||null), ficha:(p.ficha==null?null:!!p.ficha), tabs:parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla')}));
   const sem = (SB.entries||[]).filter(e=>e.tipo_periodo==='semanal' && e.semana_inicio);
   const weeks = Array.from(new Set(sem.map(e=>e.semana_inicio))).sort();
   const rows = sem.map(e=>{
