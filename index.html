@@ -877,12 +877,35 @@ function render_semana(){
   const cw=DATA.weeks[state.consulta];
   const HFCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};
   const hfc=f=>HFCAT[f]||'Other';
-  const availW=DATA.weeks.slice(0,Math.max(1,LAST));
-  const hMap={mes:4,'3m':13,'6m':26,ano:52};
-  const K=state.histMode==='hist'?availW.length:Math.min(hMap[state.histMode]||4,availW.length);
-  const hWeeks=state.histMode==='semana'?[cw]:availW.slice(availW.length-K);
   const hcats={MMF:{},Horizon:{},Other:{}};
-  hWeeks.flatMap(w=>rowsFor(person,w)).forEach(r=>{const c=hfc(r.f);(hcats[c][r.proy]=hcats[c][r.proy]||{f:0,a:0});hcats[c][r.proy].f+=r.e;hcats[c][r.proy].a+=EF(r);});
+  let histSub;
+  if(state.histMode==='semana'){
+    histSub='Tu semana cerrada · Previsto vs Real';
+    rowsFor(person,cw).forEach(r=>{const c=hfc(r.f);(hcats[c][r.proy]=hcats[c][r.proy]||{f:0,a:0});hcats[c][r.proy].f+=r.e;hcats[c][r.proy].a+=EF(r);});
+  } else {
+    const lastMon=DATA.weeks.length?pdate(DATA.weeks[DATA.weeks.length-1]):new Date();
+    const endAll=new Date(lastMon); endAll.setDate(endAll.getDate()+6);
+    let hFrom=new Date(endAll),hTo=new Date(endAll),lab;
+    if(state.histMode==='mes'){hFrom.setMonth(hFrom.getMonth()-1);lab='Último mes';}
+    else if(state.histMode==='3m'){hFrom.setMonth(hFrom.getMonth()-3);lab='Últimos 3 meses';}
+    else if(state.histMode==='6m'){hFrom.setMonth(hFrom.getMonth()-6);lab='Últimos 6 meses';}
+    else if(state.histMode==='ano'){hFrom.setMonth(hFrom.getMonth()-12);lab='Último año';}
+    else {hFrom=new Date(2025,0,1);lab='Histórico (desde ene 2025)';}
+    histSub=lab+' · Previsto vs Real';
+    (SB.entries||[]).forEach(e=>{
+      if(e.persona!==person)return;
+      let inc=false;
+      if(e.tipo_periodo==='semanal'&&e.semana_inicio){const d=pdate(e.semana_inicio);inc=(d>=hFrom&&d<=hTo);}
+      else if(e.tipo_periodo==='mensual'){const mo=monthOfEntry(e);if(mo){const ms=new Date(mo.y,mo.m-1,1),me=new Date(mo.y,mo.m,0);inc=(ms<=hTo&&me>=hFrom);}}
+      if(!inc)return;
+      const c=hfc(normFondo(e.fond));
+      const fc=toNum(e.forecast_horas);
+      const hasReal=(e.real_horas!=null&&String(e.real_horas).trim()!=='');
+      const ef=hasReal?toNum(e.real_horas):fc;
+      (hcats[c][e.proyecto]=hcats[c][e.proyecto]||{f:0,a:0});
+      hcats[c][e.proyecto].f+=fc; hcats[c][e.proyecto].a+=ef;
+    });
+  }
   const harr=c=>Object.entries(hcats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
   const hMMF=harr('MMF'),hHor=harr('Horizon'),hOth=harr('Other');
   const hsub=a=>a.reduce((s,x)=>({f:s.f+x.f,a:s.a+x.a}),{f:0,a:0});
@@ -933,7 +956,7 @@ function render_semana(){
     </div>
     <div class="card">
       <div class="card-head">
-        <div><div class="t">Historial</div><div class="s">${state.histMode==='semana'?'Tu semana cerrada · Previsto vs Real':'Tus últimas '+K+' semanas · Previsto vs Real'}</div></div>
+        <div><div class="t">Historial</div><div class="s">${histSub}</div></div>
         <div class="hist-toolbar">
           ${state.histMode==='semana'
             ? `<div class="weeknav"><button onclick="navConsulta(-1)" ${state.consulta<=0?'disabled':''}>‹</button><div class="lab"><div class="cap">Semana</div><div class="val">${navLabel(cw)}</div></div><button onclick="navConsulta(1)" ${state.consulta>=LAST-1?'disabled':''}>›</button></div>`
