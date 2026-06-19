@@ -775,12 +775,12 @@ let state={screen:'semana',person:defPerson,week:LAST,reales:[],prevision:[],res
 /* ---- Cuentas demo (contraseña "demo" para todos). Solo demo: el control real iría en el servidor. ---- */
 /* roles y accesos: el acceso real son las "tabs"; el rol es una etiqueta derivada */
 const TAB_PRESETS={Trabajador:['semana','tabla'],'VP / Director':['semana','tabla','resumen','proyectos'],Manager:['semana','tabla','resumen','proyectos'],Admin:['semana','tabla','resumen','proyectos','team']};
-function roleFromTabs(tabs){tabs=tabs||[];if(tabs.includes('team'))return 'Admin';if(tabs.includes('resumen')||tabs.includes('proyectos'))return 'Manager';return 'Trabajador';}
-function roleOf(p){return (p&&p.rol)?p.rol:roleFromTabs(p&&p.tabs);}
+function roleFromTabs(tabs){tabs=tabs||[];if(tabs.includes('team'))return 'Admin';if(tabs.includes('resumen'))return 'Manager';return 'Trabajador';}
+function roleOf(p){return (p&&p.rol)?p.rol:'Trabajador';}
 function fichaOf(p){if(p&&p.ficha!=null)return !!p.ficha;const r=roleOf(p);return r==='Trabajador'||r==='VP / Director';}
 function normName(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).sort().join(' ');}
 function parseTabs(s){if(Array.isArray(s))return s.slice();if(!s)return ['semana','tabla'];return String(s).split(',').map(x=>x.trim()).filter(Boolean);}
-function userFromPerson(p){const tabs=parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla');if(!tabs.includes('semana'))tabs.unshift('semana');return {user:p.nombre,cr:p.cr,active:(p.activo!==false),pass:p.pass||'Prueba2026',email:(p.email||''),rol:(p.rol||null),role:(p.rol||roleFromTabs(tabs)),ficha:(p.ficha==null?null:!!p.ficha),tabs};}
+function userFromPerson(p){const tabs=parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla');if(!tabs.includes('semana'))tabs.unshift('semana');return {user:p.nombre,cr:p.cr,active:(p.activo!==false),pass:p.pass||'Prueba2026',email:(p.email||''),rol:(p.rol||roleFromTabs(tabs)),role:(p.rol||roleFromTabs(tabs)),ficha:(p.ficha==null?null:!!p.ficha),tabs};}
 /* login 100% desde Supabase: sin usuarios hardcodeados */
 let USERS=[];
 state.user=null;
@@ -1269,17 +1269,17 @@ function toggleTab(i,tab){
   if(state.user&&state.user.user===u.user){state.user.tabs=u.tabs.slice();renderNav();}
   state.anim={sel:'.tm-row',stagger:false};render();
   persistTabs(u.user,u.tabs);
+  if(u.rol)persistRole(u.user,u.rol);
 }
 function fichaDefault(role){return role==='Trabajador'||role==='VP / Director';}
 function setRole(i,role){
   const u=USERS[i];
   u.role=role; u.rol=role;
-  u.tabs=(TAB_PRESETS[role]||TAB_PRESETS.Trabajador).slice();
   u.ficha=fichaDefault(role);
-  const dp=DATA.people.find(x=>x.nombre===u.user); if(dp){dp.rol=role;dp.tabs=u.tabs.slice();dp.ficha=u.ficha;}
-  if(state.user&&state.user.user===u.user){state.user.role=role;state.user.tabs=u.tabs.slice();state.user.ficha=u.ficha;renderNav();}
+  const dp=DATA.people.find(x=>x.nombre===u.user); if(dp){dp.rol=role;dp.ficha=u.ficha;}
+  if(state.user&&state.user.user===u.user){state.user.role=role;state.user.ficha=u.ficha;renderNav();}
   state.anim={sel:'.tm-row',stagger:false};render();
-  persistRole(u.user,role);persistTabs(u.user,u.tabs);persistFicha(u.user,u.ficha);
+  persistRole(u.user,role);persistFicha(u.user,u.ficha);
 }
 function toggleFicha(i){
   const u=USERS[i];
@@ -2062,7 +2062,7 @@ async function fetchEntries(){
 
 /* construye la capa de datos en variables LOCALES (sin tocar DATA todavia) */
 function buildLayerFromSB(){
-  const people = (SB.people||[]).map(p=>({nombre:p.nombre, cr:p.criterio||'', activo:(p.activo!==false), pass:(p.password||'Prueba2026'), email:(p.email||''), rol:(p.rol||null), ficha:(p.ficha==null?null:!!p.ficha), tabs:parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla')}));
+  const people = (SB.people||[]).map(p=>({nombre:p.nombre, cr:p.criterio||'', activo:(p.activo!==false), pass:(p.password||'Prueba2026'), email:(p.email||''), rol:(p.rol||roleFromTabs(parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla'))), ficha:(p.ficha==null?null:!!p.ficha), tabs:parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla')}));
   const sem = (SB.entries||[]).filter(e=>e.tipo_periodo==='semanal' && e.semana_inicio);
   const weeks = Array.from(new Set(sem.map(e=>e.semana_inicio))).sort();
   const rows = sem.map(e=>{
