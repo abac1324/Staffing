@@ -1603,6 +1603,172 @@ function openGuide(){
   </div>`;
   document.body.appendChild(ov);
 }
+/* ===== Constructor XLSX propio (zoom/cuadrícula/márgenes) ===== */
+// ===== Constructor XLSX puro (sin librerías): controla zoom, cuadrícula, anchos, estilos =====
+const CRCT=(function(){const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(buf){let crc=-1;for(let i=0;i<buf.length;i++)crc=(crc>>>8)^CRCT[(crc^buf[i])&0xff];return (crc^-1)>>>0;}
+function zipStore(files){
+  const enc=new TextEncoder();
+  const u16=n=>[n&255,(n>>8)&255];const u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>24)&255];
+  const parts=[];const central=[];let offset=0;
+  files.forEach(f=>{
+    const nameB=enc.encode(f.name);const data=f.data;const crc=crc32(data);
+    const lh=new Uint8Array([].concat([0x50,0x4b,0x03,0x04],u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(nameB.length),u16(0)));
+    parts.push(lh,nameB,data);
+    central.push({nameB,crc,size:data.length,offset});
+    offset+=lh.length+nameB.length+data.length;
+  });
+  const cdStart=offset;const cdParts=[];let cdLen=0;
+  central.forEach(c=>{
+    const cd=new Uint8Array([].concat([0x50,0x4b,0x01,0x02],u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(c.crc),u32(c.size),u32(c.size),u16(c.nameB.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(c.offset)));
+    cdParts.push(cd,c.nameB);cdLen+=cd.length+c.nameB.length;
+  });
+  const eocd=new Uint8Array([].concat([0x50,0x4b,0x05,0x06],u16(0),u16(0),u16(central.length),u16(central.length),u32(cdLen),u32(cdStart),u16(0)));
+  const all=parts.concat(cdParts,[eocd]);let total=0;all.forEach(a=>total+=a.length);
+  const out=new Uint8Array(total);let p=0;all.forEach(a=>{out.set(a,p);p+=a.length;});
+  return out;
+}
+const xe=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function colLetter(c){let s='';c++;while(c>0){const m=(c-1)%26;s=String.fromCharCode(65+m)+s;c=(c-m-1)/26;}return s;}
+
+// estilos fijos
+function stylesXML(){
+  const fonts=[
+    '<font><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>',                         //0 base
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>',                        //1 blanco bold (banda)
+    '<font><i/><sz val="9"/><color rgb="FF555555"/><name val="Arial"/></font>',                         //2 gris italic (Forecast/Actual)
+    '<font><b/><u/><sz val="10"/><color rgb="FF0A2150"/><name val="Arial"/></font>',                    //3 navy bold underline (grupo)
+    '<font><b/><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>',                        //4 negro bold
+    '<font><sz val="10"/><color rgb="FF1F4FD6"/><name val="Arial"/></font>',                            //5 azul (proyecto)
+    '<font><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>'                             //6 negro normal
+  ];
+  const fills=[
+    '<fill><patternFill patternType="none"/></fill>',
+    '<fill><patternFill patternType="gray125"/></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF0A2150"/></patternFill></fill>',            //2 navy
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF9C0"/></patternFill></fill>'             //3 amarillo
+  ];
+  const thin='<left style="thin"><color rgb="FFEAE3A0"/></left><right style="thin"><color rgb="FFEAE3A0"/></right><top style="thin"><color rgb="FFEAE3A0"/></top><bottom style="thin"><color rgb="FFEAE3A0"/></bottom><diagonal/>';
+  const borders=['<border><left/><right/><top/><bottom/><diagonal/></border>','<border>'+thin+'</border>'];
+  // cellXfs
+  const al=(h,v)=>'<alignment'+(h?' horizontal="'+h+'"':'')+(v?' vertical="'+v+'"':'')+'/>';
+  const xf=(f,fl,b,h,v)=>'<xf numFmtId="0" fontId="'+f+'" fillId="'+fl+'" borderId="'+b+'" xfId="0" applyFont="1" applyFill="1" applyBorder="1"'+((h||v)?' applyAlignment="1">'+al(h,v)+'</xf>':'/>');
+  const cellXfs=[
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',  //0 default
+    xf(1,2,0,'left','center'),  //1 banner
+    xf(1,2,1,'center','center'),//2 code
+    xf(2,3,1,'right',null),     //3 FA
+    xf(0,3,1,null,null),        //4 FA blank (amarillo)
+    xf(3,3,1,'left',null),      //5 grupo label
+    xf(4,3,1,'right',null),     //6 grupo num
+    xf(5,3,1,'left',null),      //7 proyecto label
+    xf(6,3,1,'right',null),     //8 proyecto num
+    xf(4,3,1,'left',null),      //9 total label
+    xf(4,3,1,'right',null),     //10 total num
+    xf(0,3,1,null,null)         //11 amarillo vacio
+  ];
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<fonts count="'+fonts.length+'">'+fonts.join('')+'</fonts>'+
+    '<fills count="'+fills.length+'">'+fills.join('')+'</fills>'+
+    '<borders count="'+borders.length+'">'+borders.join('')+'</borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="'+cellXfs.length+'">'+cellXfs.join('')+'</cellXfs>'+
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
+    '</styleSheet>';
+}
+
+// estilos por nombre -> indice
+const ST={banner:1,code:2,fa:3,fablank:4,grp:5,grpN:6,proj:7,projN:8,tot:9,totN:10,yel:11};
+
+// construye la hoja staffing. spec={title, persons:[{code,MMF,Horizon,Other,subM,subH,subO,tot}], secM,secH,secO, zoom}
+function buildStaffing(spec){
+  const P=spec.persons;
+  const secM=spec.secM,secH=spec.secH,secO=spec.secO;
+  // filas (0-indexadas)
+  const rMargin=0,rBan=1,rGap=2,rCode=3,rFA=4,rMh=5,rM0=6;
+  const rHh=rM0+secM,rH0=rHh+1,rOh=rH0+secH,rO0=rOh+1,rTot=rO0+secO;
+  const nRows=rTot+1;
+  const stride=4;const nCols=1+P.length*stride-1; // col0 margen + bloques (sin gap final)
+  // matrices
+  const V=Array.from({length:nRows},()=>Array(nCols).fill(null)); // valor
+  const T=Array.from({length:nRows},()=>Array(nCols).fill(null)); // tipo: 'n' o 's'
+  const S=Array.from({length:nRows},()=>Array(nCols).fill(0));    // estilo
+  const merges=[];
+  const put=(r,c,v,t,s)=>{V[r][c]=v;T[r][c]=t;S[r][c]=s;};
+  P.forEach((d,j)=>{
+    const cs=1+j*stride; // primera col del bloque (deja col0 de margen)
+    if(j===0){put(rBan,cs,spec.title,'s',ST.banner);S[rBan][cs+1]=ST.banner;S[rBan][cs+2]=ST.banner;merges.push([rBan,cs,rBan,cs+2]);}
+    put(rCode,cs,d.code,'s',ST.code);S[rCode][cs+1]=ST.code;S[rCode][cs+2]=ST.code;merges.push([rCode,cs,rCode,cs+2]);
+    S[rFA][cs]=ST.fablank;put(rFA,cs+1,'Forecast','s',ST.fa);put(rFA,cs+2,'Actual','s',ST.fa);
+    const groups=[{lbl:'MMF',hr:rMh,r0:rM0,arr:d.MMF,sub:d.subM,n:secM},{lbl:'Horizon',hr:rHh,r0:rH0,arr:d.Horizon,sub:d.subH,n:secH},{lbl:'Other',hr:rOh,r0:rO0,arr:d.Other,sub:d.subO,n:secO}];
+    groups.forEach(g=>{
+      put(g.hr,cs,g.lbl,'s',ST.grp);put(g.hr,cs+1,g.sub.f,'n',ST.grpN);put(g.hr,cs+2,g.sub.a,'n',ST.grpN);
+      for(let i=0;i<g.n;i++){const r=g.r0+i;const x=g.arr[i];
+        if(x){put(r,cs,x.proy,'s',ST.proj);put(r,cs+1,x.f,'n',ST.projN);if(x.a)put(r,cs+2,x.a,'n',ST.projN);else{S[r][cs+2]=ST.projN;}}
+        else{S[r][cs]=ST.yel;S[r][cs+1]=ST.yel;S[r][cs+2]=ST.yel;}
+      }
+    });
+    put(rTot,cs,'Total','s',ST.tot);put(rTot,cs+1,d.tot.f,'n',ST.totN);put(rTot,cs+2,d.tot.a,'n',ST.totN);
+  });
+  // cols
+  let cols='<cols>';
+  cols+='<col min="1" max="1" width="5.140625" customWidth="1"/>';
+  P.forEach((d,j)=>{const b=1+j*stride+1; // letra excel = idx+1 (1-based); col idx1 -> min 2
+    cols+='<col min="'+(b)+'" max="'+(b)+'" width="18.85546875" customWidth="1"/>';
+    cols+='<col min="'+(b+1)+'" max="'+(b+1)+'" width="9.85546875" customWidth="1"/>';
+    cols+='<col min="'+(b+2)+'" max="'+(b+2)+'" width="8.85546875" customWidth="1"/>';
+    if(j<P.length-1)cols+='<col min="'+(b+3)+'" max="'+(b+3)+'" width="2.85546875" customWidth="1"/>';
+  });
+  cols+='</cols>';
+  // sheetData
+  let sd='<sheetData>';
+  for(let r=0;r<nRows;r++){
+    let ht='';
+    if(r===rBan)ht=' ht="18" customHeight="1"';
+    else if(r===rCode)ht=' ht="20" customHeight="1"';
+    let rowx='<row r="'+(r+1)+'"'+ht+'>';
+    for(let c=0;c<nCols;c++){
+      const s=S[r][c],v=V[r][c],t=T[r][c];
+      if(v==null && !s)continue; // celda vacia sin estilo: omitir
+      const ref=colLetter(c)+(r+1);
+      if(v==null){rowx+='<c r="'+ref+'" s="'+s+'"/>';}
+      else if(t==='n'){rowx+='<c r="'+ref+'" s="'+s+'"><v>'+v+'</v></c>';}
+      else{rowx+='<c r="'+ref+'" s="'+s+'" t="inlineStr"><is><t xml:space="preserve">'+xe(v)+'</t></is></c>';}
+    }
+    rowx+='</row>';sd+=rowx;
+  }
+  sd+='</sheetData>';
+  let mc='';
+  if(merges.length){mc='<mergeCells count="'+merges.length+'">'+merges.map(m=>'<mergeCell ref="'+colLetter(m[1])+(m[0]+1)+':'+colLetter(m[3])+(m[2]+1)+'"/>').join('')+'</mergeCells>';}
+  const dimRef='A1:'+colLetter(nCols-1)+nRows;
+  const zoom=spec.zoom||65;
+  const sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<dimension ref="'+dimRef+'"/>'+
+    '<sheetViews><sheetView showGridLines="0" tabSelected="1" zoomScale="'+zoom+'" zoomScaleNormal="'+zoom+'" workbookViewId="0"/></sheetViews>'+
+    '<sheetFormatPr defaultRowHeight="15"/>'+
+    cols+sd+mc+
+    '</worksheet>';
+  return sheet;
+}
+
+function buildWorkbookXlsx(spec){
+  const enc=new TextEncoder();
+  const ct='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+  const rels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  const wb='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Staffing" sheetId="1" r:id="rId1"/></sheets></workbook>';
+  const wbr='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  const files=[
+    {name:'[Content_Types].xml',data:enc.encode(ct)},
+    {name:'_rels/.rels',data:enc.encode(rels)},
+    {name:'xl/workbook.xml',data:enc.encode(wb)},
+    {name:'xl/_rels/workbook.xml.rels',data:enc.encode(wbr)},
+    {name:'xl/styles.xml',data:enc.encode(stylesXML())},
+    {name:'xl/worksheets/sheet1.xml',data:enc.encode(buildStaffing(spec))}
+  ];
+  return zipStore(files);
+}
 function exportTabla(mode){
   const W=DATA.weeks;const FCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};const fc=f=>FCAT[f]||'Other';
   const fmt=s=>{const d=pdate(s);return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();};
@@ -1630,54 +1796,14 @@ function exportTabla(mode){
     return {p,n:rs.length,MMF,Horizon,Other,subM:sub(MMF),subH:sub(Horizon),subO:sub(Other),tot:sub([...MMF,...Horizon,...Other])};
   }).filter(d=>d.n>0);
   const maxM=Math.max(0,...data.map(d=>d.MMF.length)),maxH=Math.max(0,...data.map(d=>d.Horizon.length)),maxO=Math.max(0,...data.map(d=>d.Other.length));
-  if(typeof XLSX==='undefined'){toast('Cargando la librería de Excel, reinténtalo en unos segundos');return;}
-  const P=data; if(!P.length){toast('Sin trabajadores con datos para exportar');return;}
+  if(typeof TextEncoder==='undefined'){toast('Tu navegador no soporta esta exportación');return;}
+  const P0=data; if(!P0.length){toast('Sin trabajadores con datos para exportar');return;}
   const initials=nm=>String(nm||'').trim().split(/\s+/).slice(0,3).map(w=>w.charAt(0).toUpperCase()).join('');
-  const YEL='FFF9C0';
-  const bd=()=>{const s={style:'thin',color:{rgb:'EAE3A0'}};return{top:s,bottom:s,left:s,right:s};};
-  const FN='Arial';
-  const sBanner={fill:{patternType:'solid',fgColor:{rgb:'0A2150'}},font:{name:FN,bold:true,sz:11,color:{rgb:'FFFFFF'}},alignment:{horizontal:'left',vertical:'center'}};
-  const sCode={fill:{patternType:'solid',fgColor:{rgb:'0A2150'}},font:{name:FN,bold:true,sz:11,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center'},border:bd()};
-  const sFA={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,italic:true,sz:9,color:{rgb:'555555'}},alignment:{horizontal:'right'},border:bd()};
-  const sGrp={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,underline:true,sz:10,color:{rgb:'0A2150'}},alignment:{horizontal:'left'},border:bd()};
-  const sGrpN={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'right'},border:bd()};
-  const sProj={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,sz:10,color:{rgb:'1F4FD6'}},alignment:{horizontal:'left'},border:bd()};
-  const sProjN={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'right'},border:bd()};
-  const sTot={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'left'},border:bd()};
-  const sTotN={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'right'},border:bd()};
-  const sYel={fill:{patternType:'solid',fgColor:{rgb:YEL}},border:bd()};
-  const rBan=0,rCode=1,rFA=2,rMh=3,rM0=4;
-  const rHh=rM0+maxM,rH0=rHh+1,rOh=rH0+maxH,rO0=rOh+1,rTot=rO0+maxO;
-  const nRows=rTot+1,stride=4,nCols=P.length*stride-1;
-  const grid=Array.from({length:nRows},()=>Array(nCols).fill(''));
-  const sty=Array.from({length:nRows},()=>Array(nCols).fill(null));
-  const merges=[];
-  P.forEach((d,j)=>{
-    const cs=j*stride;
-    if(j===0){grid[rBan][0]=title.replace(/^Semana /,'Semana: ');sty[rBan][0]=sBanner;sty[rBan][1]=sBanner;sty[rBan][2]=sBanner;merges.push({s:{r:rBan,c:0},e:{r:rBan,c:2}});}
-    grid[rCode][cs]=initials(d.p.nombre);sty[rCode][cs]=sCode;sty[rCode][cs+1]=sCode;sty[rCode][cs+2]=sCode;merges.push({s:{r:rCode,c:cs},e:{r:rCode,c:cs+2}});
-    sty[rFA][cs]={fill:{patternType:'solid',fgColor:{rgb:YEL}},border:bd()};grid[rFA][cs+1]='Forecast';sty[rFA][cs+1]=sFA;grid[rFA][cs+2]='Actual';sty[rFA][cs+2]=sFA;
-    const groups=[{lbl:'MMF',hr:rMh,r0:rM0,arr:d.MMF,sub:d.subM,max:maxM},{lbl:'Horizon',hr:rHh,r0:rH0,arr:d.Horizon,sub:d.subH,max:maxH},{lbl:'Other',hr:rOh,r0:rO0,arr:d.Other,sub:d.subO,max:maxO}];
-    groups.forEach(g=>{
-      grid[g.hr][cs]=g.lbl;sty[g.hr][cs]=sGrp;grid[g.hr][cs+1]=g.sub.f;sty[g.hr][cs+1]=sGrpN;grid[g.hr][cs+2]=g.sub.a;sty[g.hr][cs+2]=sGrpN;
-      for(let i=0;i<g.max;i++){const r=g.r0+i;const x=g.arr[i];
-        if(x){grid[r][cs]=x.proy;sty[r][cs]=sProj;grid[r][cs+1]=x.f;sty[r][cs+1]=sProjN;grid[r][cs+2]=(x.a?x.a:'');sty[r][cs+2]=sProjN;}
-        else{sty[r][cs]=sYel;sty[r][cs+1]=sYel;sty[r][cs+2]=sYel;}
-      }
-    });
-    grid[rTot][cs]='Total';sty[rTot][cs]=sTot;grid[rTot][cs+1]=d.tot.f;sty[rTot][cs+1]=sTotN;grid[rTot][cs+2]=d.tot.a;sty[rTot][cs+2]=sTotN;
-  });
-  const ws=XLSX.utils.aoa_to_sheet(grid);
-  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nRows-1,c:nCols-1}});
-  for(let R=0;R<nRows;R++)for(let C=0;C<nCols;C++){const st=sty[R][C];if(st){const a=XLSX.utils.encode_cell({r:R,c:C});if(!ws[a])ws[a]={t:'s',v:''};ws[a].s=st;}}
-  ws['!merges']=merges;
-  const colW=[];for(let j=0;j<P.length;j++){colW.push({wch:18},{wch:9},{wch:8});if(j<P.length-1)colW.push({wch:2});}
-  ws['!cols']=colW;
-  const heights=[];heights[rBan]={hpt:18};heights[rCode]={hpt:20};
-  ws['!rows']=Array.from({length:nRows},(_,r)=>heights[r]||{});
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Staffing');
-  XLSX.writeFile(wb,'Staffing_'+title.replace(/[^a-z0-9]+/gi,'_')+'.xlsx');
+  const persons=P0.map(d=>({code:initials(d.p.nombre),MMF:d.MMF,Horizon:d.Horizon,Other:d.Other,subM:d.subM,subH:d.subH,subO:d.subO,tot:d.tot}));
+  const pad=(mode==='semana')?0:2;
+  const spec={title:title.replace(/^Semana /,'Semana: '),persons:persons,secM:Math.max(6,maxM+pad),secH:Math.max(6,maxH+pad),secO:Math.max(6,maxO+pad),zoom:65};
+  const bytes=buildWorkbookXlsx(spec);
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));a.download='Staffing_'+title.replace(/[^a-z0-9]+/gi,'_')+'.xlsx';document.body.appendChild(a);a.click();a.remove();
   toast('Excel descargado');
 }
 function render(){
