@@ -916,7 +916,7 @@ function render_semana(){
   const rt=realesTotal();
   document.getElementById('view').innerHTML=`
     <div class="topbar">
-      <h1>Mi semana — ${(state.user&&state.user.role==='Trabajador')?esc(DATA.people[state.person].nombre):ddMount({variant:'inline',value:DATA.people[state.person].nombre,options:DATA.people.filter(p=>p.activo!==false&&fichaOf(p)).map(p=>p.nombre),onChange:v=>{state.person=DATA.people.findIndex(p=>p.nombre===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}</h1>
+      <h1>Mi semana — ${(state.user&&(state.user.role==='Admin'||state.user.role==='Manager'))?ddMount({variant:'inline',value:DATA.people[state.person].nombre,options:DATA.people.filter(p=>p.activo!==false&&fichaOf(p)).map(p=>p.nombre),onChange:v=>{state.person=DATA.people.findIndex(p=>p.nombre===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}}):esc(DATA.people[state.person].nombre)}</h1>
       <button class="pill" style="display:none"></button>
       <button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.week<=0?'disabled':''} onclick="semanaNav(-1)" title="Semana anterior">‹</button>
       ${ddMount({variant:'pill',value:weekOptLabel(state.week),options:ALLWEEKS.slice(0,LAST+2).map((s,i)=>weekOptLabel(i)),onChange:v=>{state.week=ALLWEEKS.findIndex((s,i)=>weekOptLabel(i)===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}
