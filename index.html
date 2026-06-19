@@ -774,9 +774,10 @@ let state={screen:'semana',person:defPerson,week:LAST,reales:[],prevision:[],res
 /* roles y accesos: el acceso real son las "tabs"; el rol es una etiqueta derivada */
 const TAB_PRESETS={Trabajador:['semana','tabla'],Manager:['semana','tabla','resumen','proyectos'],Admin:['semana','tabla','resumen','proyectos','team']};
 function roleFromTabs(tabs){tabs=tabs||[];if(tabs.includes('team'))return 'Admin';if(tabs.includes('resumen')||tabs.includes('proyectos'))return 'Manager';return 'Trabajador';}
+function roleOf(p){return (p&&p.rol)?p.rol:roleFromTabs(p&&p.tabs);}
 function normName(s){return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(Boolean).sort().join(' ');}
 function parseTabs(s){if(Array.isArray(s))return s.slice();if(!s)return ['semana','tabla'];return String(s).split(',').map(x=>x.trim()).filter(Boolean);}
-function userFromPerson(p){const tabs=parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla');if(!tabs.includes('semana'))tabs.unshift('semana');return {user:p.nombre,cr:p.cr,active:(p.activo!==false),pass:p.pass||'Prueba2026',email:(p.email||''),role:roleFromTabs(tabs),tabs};}
+function userFromPerson(p){const tabs=parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla');if(!tabs.includes('semana'))tabs.unshift('semana');return {user:p.nombre,cr:p.cr,active:(p.activo!==false),pass:p.pass||'Prueba2026',email:(p.email||''),rol:(p.rol||null),role:(p.rol||roleFromTabs(tabs)),tabs};}
 /* login 100% desde Supabase: sin usuarios hardcodeados */
 let USERS=[];
 state.user=null;
@@ -885,7 +886,7 @@ function render_semana(){
   const rt=realesTotal();
   document.getElementById('view').innerHTML=`
     <div class="topbar">
-      <h1>Mi semana — ${(state.user&&state.user.role==='Trabajador')?esc(DATA.people[state.person].nombre):ddMount({variant:'inline',value:DATA.people[state.person].nombre,options:DATA.people.filter(p=>p.activo!==false&&roleFromTabs(p.tabs)==='Trabajador').map(p=>p.nombre),onChange:v=>{state.person=DATA.people.findIndex(p=>p.nombre===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}</h1>
+      <h1>Mi semana — ${(state.user&&state.user.role==='Trabajador')?esc(DATA.people[state.person].nombre):ddMount({variant:'inline',value:DATA.people[state.person].nombre,options:DATA.people.filter(p=>p.activo!==false&&roleOf(p)==='Trabajador').map(p=>p.nombre),onChange:v=>{state.person=DATA.people.findIndex(p=>p.nombre===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}</h1>
       <button class="pill" style="display:none"></button>
       <button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.week<=0?'disabled':''} onclick="semanaNav(-1)" title="Semana anterior">‹</button>
       ${ddMount({variant:'pill',value:weekOptLabel(state.week),options:ALLWEEKS.slice(0,LAST+2).map((s,i)=>weekOptLabel(i)),onChange:v=>{state.week=ALLWEEKS.findIndex((s,i)=>weekOptLabel(i)===v);loadSemana();state.anim={sel:'.card',stagger:true};render();}})}
@@ -1042,7 +1043,7 @@ function render_resumen(){
     <div class="topbar"><h1>Resumen</h1>
       <div class="hseg"><button class="${mode==='semana'?'on':''}" onclick="state.resRange='semana';state.anim={sel:'.card',stagger:true};render()">Semana</button><button class="${mode==='mes'?'on':''}" onclick="state.resRange='mes';state.anim={sel:'.card',stagger:true};render()">Último mes</button><button class="${mode==='3m'?'on':''}" onclick="state.resRange='3m';state.anim={sel:'.card',stagger:true};render()">Últimos 3 meses</button><button class="${mode==='6m'?'on':''}" onclick="state.resRange='6m';state.anim={sel:'.card',stagger:true};render()">Últimos 6 meses</button><button class="${mode==='ano'?'on':''}" onclick="state.resRange='ano';state.anim={sel:'.card',stagger:true};render()">Último año</button><button class="${mode==='hist'?'on':''}" onclick="state.resRange='hist';state.anim={sel:'.card',stagger:true};render()">Histórico</button></div>
       ${isWeek?`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.resWeek<=minW?'disabled':''} onclick="state.resWeek=Math.max(Math.max(0,DATA.weeks.length-13),state.resWeek-1);state.anim={sel:'.card',stagger:true};render()" title="Semana anterior">‹</button>`+ddMount({variant:'pill',value:weekLong(wk),options:DATA.weeks.slice(minW).map(weekLong),onChange:v=>{state.resWeek=DATA.weeks.findIndex(s=>weekLong(s)===v);state.anim={sel:'.card',stagger:true};render();}})+`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-left:6px" ${state.resWeek>=DATA.weeks.length-1?'disabled':''} onclick="state.resWeek=Math.min(DATA.weeks.length-1,state.resWeek+1);state.anim={sel:'.card',stagger:true};render()" title="Semana siguiente">›</button>`:''}
-      ${ddMount({variant:'pill',value:state.resPerson||'Toda la plantilla',options:['Toda la plantilla',...DATA.people.filter(p=>p.activo!==false&&roleFromTabs(p.tabs)==='Trabajador').map(p=>p.nombre)],onChange:v=>{state.resPerson=(v==='Toda la plantilla'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
+      ${ddMount({variant:'pill',value:state.resPerson||'Toda la plantilla',options:['Toda la plantilla',...DATA.people.filter(p=>p.activo!==false&&roleOf(p)==='Trabajador').map(p=>p.nombre)],onChange:v=>{state.resPerson=(v==='Toda la plantilla'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${ddMount({variant:'pill',value:state.resFund||'Todos los fondos',options:['Todos los fondos',...Array.from(new Set(DATA.rows.map(r=>r.f)))],onChange:v=>{state.resFund=(v==='Todos los fondos'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${projMsel}
       <div class="spacer"></div>
@@ -1235,18 +1236,25 @@ function toggleTab(i,tab){
   if(tab==='semana')return;
   const u=USERS[i];const k=u.tabs.indexOf(tab);
   if(k>=0)u.tabs.splice(k,1);else u.tabs.push(tab);
-  u.role=roleFromTabs(u.tabs);
-  if(state.user&&state.user.user===u.user){state.user.tabs=u.tabs.slice();state.user.role=u.role;renderNav();}
+  if(state.user&&state.user.user===u.user){state.user.tabs=u.tabs.slice();renderNav();}
   state.anim={sel:'.tm-row',stagger:false};render();
   persistTabs(u.user,u.tabs);
 }
 function setRole(i,role){
   const u=USERS[i];
-  u.tabs=(TAB_PRESETS[role]||TAB_PRESETS.Trabajador).slice();
-  u.role=role;
-  if(state.user&&state.user.user===u.user){state.user.tabs=u.tabs.slice();state.user.role=u.role;renderNav();}
+  u.role=role; u.rol=role;
+  const dp=DATA.people.find(x=>x.nombre===u.user); if(dp)dp.rol=role;
+  if(state.user&&state.user.user===u.user){state.user.role=role;renderNav();}
   state.anim={sel:'.tm-row',stagger:false};render();
-  persistTabs(u.user,u.tabs);
+  persistRole(u.user,role);
+}
+async function persistRole(name,role){
+  const dp=DATA.people.find(x=>x.nombre===name); if(dp)dp.rol=role;
+  if(sb&&SB.loaded){
+    const {error}=await sb.from('people').update({rol:role}).eq('nombre',name);
+    if(error){toast('No se pudo guardar el rol: '+error.message+(/rol/.test(error.message)?' — ¿corriste el SQL de la columna rol?':''));return;}
+    const sp=SB.people.find(x=>x.nombre===name); if(sp)sp.rol=role;
+  }
 }
 async function setCR(i,val){
   val=(val||'').trim().toUpperCase();
@@ -1613,7 +1621,8 @@ function exportTabla(mode){
   else {const wk=W[Math.min(Math.max(state.tablaWeek,0),W.length-1)];weeks=[wk];title='Semana '+fmt(wk);}
   if(mode!=='custom' && !weeks.length){toast('Sin datos en ese rango');return;}
   const esc2=s=>(''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const data=DATA.people.map(p=>{
+  const EXCL_STAFF=['Gonzalo Saavedra','Laura Subías','Pol Ferrer'].map(normName);
+  const data=DATA.people.filter(p=>roleOf(p)==='Trabajador'&&EXCL_STAFF.indexOf(normName(p.nombre))<0).map(p=>{
     const rs = (mode==='custom') ? (rowsByPerson[p.nombre]||[]) : weeks.flatMap(w=>rowsFor(p.nombre,w));const cats={MMF:{},Horizon:{},Other:{}};
     rs.forEach(r=>{const c=fc(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=r.r;});
     const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
@@ -1621,20 +1630,54 @@ function exportTabla(mode){
     return {p,n:rs.length,MMF,Horizon,Other,subM:sub(MMF),subH:sub(Horizon),subO:sub(Other),tot:sub([...MMF,...Horizon,...Other])};
   }).filter(d=>d.n>0);
   const maxM=Math.max(0,...data.map(d=>d.MMF.length)),maxH=Math.max(0,...data.map(d=>d.Horizon.length)),maxO=Math.max(0,...data.map(d=>d.Other.length));
-  const head1=data.map(d=>`<th colspan="3" style="background:#0A2150;color:#fff">${esc2(d.p.nombre)}</th>`).join('<th></th>');
-  const head2=data.map(()=>`<th>Proyecto</th><th>Prev</th><th>Real</th>`).join('<th></th>');
-  const catRows=(label,key,subKey,maxR)=>{
-    let out='<tr style="font-weight:bold;background:#eaeef6">'+data.map(d=>`<td>${label}</td><td>${d[subKey].f}</td><td>${d[subKey].a}</td>`).join('<td></td>')+'</tr>';
-    for(let i=0;i<maxR;i++){out+='<tr>'+data.map(d=>{const x=d[key][i];return x?`<td>${esc2(x.proy)}</td><td>${x.f}</td><td>${x.a}</td>`:'<td></td><td></td><td></td>';}).join('<td></td>')+'</tr>';}
-    return out;
-  };
-  const totalRow='<tr style="font-weight:bold;background:#dde4f0">'+data.map(d=>`<td>Total</td><td>${d.tot.f}</td><td>${d.tot.a}</td>`).join('<td></td>')+'</tr>';
-  const html='<html><head><meta charset="utf-8"></head><body><h3>Vista equipo · '+esc2(title)+'</h3>'
-    +'<table border="1" cellspacing="0" cellpadding="4" style="font-family:Arial;font-size:11px">'
-    +'<tr>'+head1+'</tr><tr style="background:#f0f1f4;font-weight:bold">'+head2+'</tr>'
-    +catRows('MMF','MMF','subM',maxM)+catRows('Horizon','Horizon','subH',maxH)+catRows('Other','Other','subO',maxO)+totalRow
-    +'</table></body></html>';
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'application/vnd.ms-excel'}));a.download='vista_equipo_'+title.replace(/[^a-z0-9]+/gi,'_')+'.xls';document.body.appendChild(a);a.click();a.remove();
+  if(typeof XLSX==='undefined'){toast('Cargando la librería de Excel, reinténtalo en unos segundos');return;}
+  const P=data; if(!P.length){toast('Sin trabajadores con datos para exportar');return;}
+  const initials=nm=>String(nm||'').trim().split(/\s+/).slice(0,3).map(w=>w.charAt(0).toUpperCase()).join('');
+  const YEL='FFF9C0';
+  const bd=()=>{const s={style:'thin',color:{rgb:'EAE3A0'}};return{top:s,bottom:s,left:s,right:s};};
+  const FN='Arial';
+  const sBanner={fill:{patternType:'solid',fgColor:{rgb:'0A2150'}},font:{name:FN,bold:true,sz:11,color:{rgb:'FFFFFF'}},alignment:{horizontal:'left',vertical:'center'}};
+  const sCode={fill:{patternType:'solid',fgColor:{rgb:'0A2150'}},font:{name:FN,bold:true,sz:11,color:{rgb:'FFFFFF'}},alignment:{horizontal:'center',vertical:'center'},border:bd()};
+  const sFA={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,italic:true,sz:9,color:{rgb:'555555'}},alignment:{horizontal:'right'},border:bd()};
+  const sGrp={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,underline:true,sz:10,color:{rgb:'0A2150'}},alignment:{horizontal:'left'},border:bd()};
+  const sGrpN={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'right'},border:bd()};
+  const sProj={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,sz:10,color:{rgb:'1F4FD6'}},alignment:{horizontal:'left'},border:bd()};
+  const sProjN={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'right'},border:bd()};
+  const sTot={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'left'},border:bd()};
+  const sTotN={fill:{patternType:'solid',fgColor:{rgb:YEL}},font:{name:FN,bold:true,sz:10,color:{rgb:'1A1C1B'}},alignment:{horizontal:'right'},border:bd()};
+  const sYel={fill:{patternType:'solid',fgColor:{rgb:YEL}},border:bd()};
+  const rBan=0,rCode=1,rFA=2,rMh=3,rM0=4;
+  const rHh=rM0+maxM,rH0=rHh+1,rOh=rH0+maxH,rO0=rOh+1,rTot=rO0+maxO;
+  const nRows=rTot+1,stride=4,nCols=P.length*stride-1;
+  const grid=Array.from({length:nRows},()=>Array(nCols).fill(''));
+  const sty=Array.from({length:nRows},()=>Array(nCols).fill(null));
+  const merges=[];
+  P.forEach((d,j)=>{
+    const cs=j*stride;
+    if(j===0){grid[rBan][0]=title.replace(/^Semana /,'Semana: ');sty[rBan][0]=sBanner;sty[rBan][1]=sBanner;sty[rBan][2]=sBanner;merges.push({s:{r:rBan,c:0},e:{r:rBan,c:2}});}
+    grid[rCode][cs]=initials(d.p.nombre);sty[rCode][cs]=sCode;sty[rCode][cs+1]=sCode;sty[rCode][cs+2]=sCode;merges.push({s:{r:rCode,c:cs},e:{r:rCode,c:cs+2}});
+    sty[rFA][cs]={fill:{patternType:'solid',fgColor:{rgb:YEL}},border:bd()};grid[rFA][cs+1]='Forecast';sty[rFA][cs+1]=sFA;grid[rFA][cs+2]='Actual';sty[rFA][cs+2]=sFA;
+    const groups=[{lbl:'MMF',hr:rMh,r0:rM0,arr:d.MMF,sub:d.subM,max:maxM},{lbl:'Horizon',hr:rHh,r0:rH0,arr:d.Horizon,sub:d.subH,max:maxH},{lbl:'Other',hr:rOh,r0:rO0,arr:d.Other,sub:d.subO,max:maxO}];
+    groups.forEach(g=>{
+      grid[g.hr][cs]=g.lbl;sty[g.hr][cs]=sGrp;grid[g.hr][cs+1]=g.sub.f;sty[g.hr][cs+1]=sGrpN;grid[g.hr][cs+2]=g.sub.a;sty[g.hr][cs+2]=sGrpN;
+      for(let i=0;i<g.max;i++){const r=g.r0+i;const x=g.arr[i];
+        if(x){grid[r][cs]=x.proy;sty[r][cs]=sProj;grid[r][cs+1]=x.f;sty[r][cs+1]=sProjN;grid[r][cs+2]=(x.a?x.a:'');sty[r][cs+2]=sProjN;}
+        else{sty[r][cs]=sYel;sty[r][cs+1]=sYel;sty[r][cs+2]=sYel;}
+      }
+    });
+    grid[rTot][cs]='Total';sty[rTot][cs]=sTot;grid[rTot][cs+1]=d.tot.f;sty[rTot][cs+1]=sTotN;grid[rTot][cs+2]=d.tot.a;sty[rTot][cs+2]=sTotN;
+  });
+  const ws=XLSX.utils.aoa_to_sheet(grid);
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:nRows-1,c:nCols-1}});
+  for(let R=0;R<nRows;R++)for(let C=0;C<nCols;C++){const st=sty[R][C];if(st){const a=XLSX.utils.encode_cell({r:R,c:C});if(!ws[a])ws[a]={t:'s',v:''};ws[a].s=st;}}
+  ws['!merges']=merges;
+  const colW=[];for(let j=0;j<P.length;j++){colW.push({wch:18},{wch:9},{wch:8});if(j<P.length-1)colW.push({wch:2});}
+  ws['!cols']=colW;
+  const heights=[];heights[rBan]={hpt:18};heights[rCode]={hpt:20};
+  ws['!rows']=Array.from({length:nRows},(_,r)=>heights[r]||{});
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Staffing');
+  XLSX.writeFile(wb,'Staffing_'+title.replace(/[^a-z0-9]+/gi,'_')+'.xlsx');
   toast('Excel descargado');
 }
 function render(){
@@ -1656,7 +1699,7 @@ function enterAsUser(found){
   const pi=DATA.people.findIndex(x=>x.nombre.toLowerCase()===found.user.toLowerCase());
   state.person=pi>=0?pi:0;
   if(found.role!=='Trabajador'){
-    const ti=DATA.people.findIndex(p=>p.activo!==false && roleFromTabs(p.tabs)==='Trabajador');
+    const ti=DATA.people.findIndex(p=>p.activo!==false && roleOf(p)==='Trabajador');
     if(ti>=0)state.person=ti;
   }
   state.screen=found.tabs.includes('semana')?'semana':found.tabs[0];
@@ -1677,7 +1720,7 @@ function demoSwitcher(){
   }
   sel=document.getElementById('demoSwitch');
   const ord={Admin:0,Manager:1,Trabajador:2};
-  const ppl=DATA.people.filter(p=>p.activo!==false).map(p=>({n:p.nombre,r:roleFromTabs(p.tabs)})).sort((a,b)=>(ord[a.r]-ord[b.r])||a.n.localeCompare(b.n,'es'));
+  const ppl=DATA.people.filter(p=>p.activo!==false).map(p=>({n:p.nombre,r:roleOf(p)})).sort((a,b)=>(ord[a.r]-ord[b.r])||a.n.localeCompare(b.n,'es'));
   const cur=state.user?state.user.user:'';
   sel.innerHTML=ppl.map(p=>`<option value="${esc(p.n)}"${p.n===cur?' selected':''}>${esc(p.n)} · ${p.r}</option>`).join('');
 }
@@ -1829,7 +1872,7 @@ function rebuildCatalog(){
 
 /* trae people; si la columna activo aún no existe, reintenta sin ella */
 async function fetchPeople(){
-  const tries=['nombre,criterio,activo,password,tabs,email','nombre,criterio,activo,password,tabs','nombre,criterio,activo','nombre,criterio'];
+  const tries=['nombre,criterio,activo,password,tabs,email,rol','nombre,criterio,activo,password,tabs,email','nombre,criterio,activo,password,tabs','nombre,criterio,activo','nombre,criterio'];
   for(const cols of tries){
     try{ return await fetchAllSB('people',cols); }
     catch(e){ console.warn('people fetch sin ['+cols+']:', e.message); }
@@ -1844,7 +1887,7 @@ async function fetchEntries(){
 
 /* construye la capa de datos en variables LOCALES (sin tocar DATA todavia) */
 function buildLayerFromSB(){
-  const people = (SB.people||[]).map(p=>({nombre:p.nombre, cr:p.criterio||'', activo:(p.activo!==false), pass:(p.password||'Prueba2026'), email:(p.email||''), tabs:parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla')}));
+  const people = (SB.people||[]).map(p=>({nombre:p.nombre, cr:p.criterio||'', activo:(p.activo!==false), pass:(p.password||'Prueba2026'), email:(p.email||''), rol:(p.rol||null), tabs:parseTabs(p.tabs&&p.tabs.length?p.tabs:'semana,tabla')}));
   const sem = (SB.entries||[]).filter(e=>e.tipo_periodo==='semanal' && e.semana_inicio);
   const weeks = Array.from(new Set(sem.map(e=>e.semana_inicio))).sort();
   const rows = sem.map(e=>{
