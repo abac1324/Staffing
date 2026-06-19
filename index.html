@@ -696,7 +696,7 @@ function catInfo(name){
 }
 function setWeekRows(person,week,rows){
   DATA.rows=DATA.rows.filter(r=>!(r.p===person&&r.s===week));
-  for(const r of rows) DATA.rows.push(r);
+  for(const r of rows){ r.hr=(r.r!=null); r.ef=(r.r!=null?(+r.r||0):(+r.e||0)); DATA.rows.push(r); }
 }
 function saveReales(){
   const person=DATA.people[state.person].nombre;
@@ -759,6 +759,8 @@ function resetDatos(){
   location.reload();
 }
 function rowsFor(p,s){return DATA.rows.filter(r=>r.p===p&&r.s===s);}
+/* horas efectivas: real si está puesto (incl. 0), si no la previsión */
+function EF(r){return (r.ef!=null?r.ef:(r.hr?r.r:r.e))||0;}
 function esc(t){return (''+t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function toast(msg){const t=document.getElementById('toast');t.innerHTML=I.check+esc(msg);t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
 
@@ -786,6 +788,8 @@ const TABS={semana:['Mi semana',I.grid],resumen:['Resumen',I.bars],proyectos:['P
 
 /* ===== custom dropdown (styled + searchable) ===== */
 let DD={},ddSeq=0,modalDD={};
+let ANIM_ELS=[];
+function clearAnims(){ANIM_ELS.forEach(el=>{if(el&&el.style)el.style.animation='';});ANIM_ELS=[];}
 function ddRegister(cfg){const id='dd'+(ddSeq++);DD[id]=cfg;return id;}
 function ddMount(cfg){return `<div class="dd ${cfg.variant||''}" data-dd="${ddRegister(cfg)}"></div>`;}
 const STATUS_COL={'Live':'#16A34A','On Hold':'#F59E0B','Terminated':'#EF4444','Closed':'#9CA3AF','Portfolio Company sold':'#0898A0'};
@@ -805,7 +809,7 @@ function buildDD(el,cfg){
   const btn=el.querySelector('.dd-btn'),panel=el.querySelector('.dd-panel'),val=el.querySelector('.dd-val'),si=el.querySelector('.dd-search input');
   let q='',sf=cfg.statusFilter?'Live':'';
   function doFilter(){let any=false;el.querySelectorAll('.dd-opt').forEach(o=>{const lbl=o.dataset.v;const okT=lbl.toLowerCase().includes(q.toLowerCase());const okS=!sf||lbl===cfg.value||(cfg.statuses&&cfg.statuses[lbl]===sf);const vis=okT&&okS;o.style.display=vis?'':'none';if(vis)any=true;});const e=el.querySelector('.dd-empty');if(e)e.style.display=any?'none':'block';}
-  btn.addEventListener('click',e=>{e.stopPropagation();const open=!el.classList.contains('open');closeAllDD();if(open){el.classList.add('open');q='';if(si)si.value='';doFilter();if(si)setTimeout(()=>si.focus(),0);}});
+  btn.addEventListener('click',e=>{e.stopPropagation();const open=!el.classList.contains('open');closeAllDD();if(open){clearAnims();el.classList.add('open');q='';if(si)si.value='';doFilter();if(si)setTimeout(()=>si.focus(),0);}});
   panel.addEventListener('click',e=>e.stopPropagation());
   if(si)si.addEventListener('input',()=>{q=si.value;doFilter();});
   el.querySelectorAll('.dd-chips .chip').forEach(ch=>ch.addEventListener('click',()=>{sf=ch.dataset.f;el.querySelectorAll('.dd-chips .chip').forEach(x=>x.classList.toggle('on',x===ch));doFilter();}));
@@ -815,9 +819,11 @@ function hydrateDropdowns(){document.querySelectorAll('.dd[data-dd]').forEach(el
 function applyAnim(){
   const a=state.anim;state.anim=null;if(!a)return;
   const v=document.getElementById('view');
-  if(a.view){v.style.animation='none';void v.offsetWidth;v.style.animation='fadeUp .3s cubic-bezier(.16,1,.3,1)';return;}
+  clearAnims();
+  if(a.view){v.style.animation='none';void v.offsetWidth;v.style.animation='fadeUp .3s cubic-bezier(.16,1,.3,1)';ANIM_ELS=[v];v.addEventListener('animationend',()=>{v.style.animation='';},{once:true});return;}
   const els=[...v.querySelectorAll(a.sel)],dur=a.stagger?'.28s':'.18s';
-  els.forEach((el,i)=>{el.style.animation='none';void el.offsetWidth;const d=a.stagger?Math.min(i*0.035,0.22):0;el.style.animation=`rowIn ${dur} cubic-bezier(.16,1,.3,1) ${d}s both`;});
+  els.forEach((el,i)=>{el.style.animation='none';void el.offsetWidth;const d=a.stagger?Math.min(i*0.035,0.22):0;el.style.animation=`rowIn ${dur} cubic-bezier(.16,1,.3,1) ${d}s both`;el.addEventListener('animationend',()=>{el.style.animation='';},{once:true});});
+  ANIM_ELS=els;
 }
 document.addEventListener('click',e=>{if(!e.target.closest('.dd'))closeAllDD();});
 
@@ -876,7 +882,7 @@ function render_semana(){
   const K=state.histMode==='hist'?availW.length:Math.min(hMap[state.histMode]||4,availW.length);
   const hWeeks=state.histMode==='semana'?[cw]:availW.slice(availW.length-K);
   const hcats={MMF:{},Horizon:{},Other:{}};
-  hWeeks.flatMap(w=>rowsFor(person,w)).forEach(r=>{const c=hfc(r.f);(hcats[c][r.proy]=hcats[c][r.proy]||{f:0,a:0});hcats[c][r.proy].f+=r.e;hcats[c][r.proy].a+=(r.r||0);});
+  hWeeks.flatMap(w=>rowsFor(person,w)).forEach(r=>{const c=hfc(r.f);(hcats[c][r.proy]=hcats[c][r.proy]||{f:0,a:0});hcats[c][r.proy].f+=r.e;hcats[c][r.proy].a+=EF(r);});
   const harr=c=>Object.entries(hcats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
   const hMMF=harr('MMF'),hHor=harr('Horizon'),hOth=harr('Other');
   const hsub=a=>a.reduce((s,x)=>({f:s.f+x.f,a:s.a+x.a}),{f:0,a:0});
@@ -1413,10 +1419,10 @@ function render_tabla(){
     if(state.tablaFrom&&state.tablaTo){const a=new Date(state.tablaFrom),b=new Date(state.tablaTo);weeks=W.filter(s=>{const d=pdate(s);return d>=a&&d<=b;});periodLabel='Del '+state.tablaFrom.split('-').reverse().join('/')+' al '+state.tablaTo.split('-').reverse().join('/');}
     else{weeks=[];periodLabel='Elige un rango de fechas';}
   } else {const wk=W[Math.min(Math.max(state.tablaWeek,0),W.length-1)];weeks=[wk];periodLabel='Semana del '+fmtDMY(wk);}
-  const data=DATA.people.map(p=>{
+  const data=DATA.people.filter(p=>roleOf(p)==='Trabajador').map(p=>{
     const rows=weeks.flatMap(w=>rowsFor(p.nombre,w));
     const cats={MMF:{},Horizon:{},Other:{}};
-    rows.forEach(r=>{const c=fcat(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=r.r;});
+    rows.forEach(r=>{const c=fcat(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=EF(r);});
     const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
     const MMF=arr('MMF'),Horizon=arr('Horizon'),Other=arr('Other');
     const sub=a=>a.reduce((s,x)=>({f:s.f+x.f,a:s.a+x.a}),{f:0,a:0});
@@ -1810,7 +1816,7 @@ function exportTabla(mode){
   const esc2=s=>(''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const data=DATA.people.filter(p=>roleOf(p)==='Trabajador').map(p=>{
     const rs = (mode==='custom') ? (rowsByPerson[p.nombre]||[]) : weeks.flatMap(w=>rowsFor(p.nombre,w));const cats={MMF:{},Horizon:{},Other:{}};
-    rs.forEach(r=>{const c=fc(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=r.r;});
+    rs.forEach(r=>{const c=fc(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=EF(r);});
     const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
     const MMF=arr('MMF'),Horizon=arr('Horizon'),Other=arr('Other');const sub=a=>a.reduce((s,x)=>({f:s.f+x.f,a:s.a+x.a}),{f:0,a:0});
     return {p,n:rs.length,MMF,Horizon,Other,subM:sub(MMF),subH:sub(Horizon),subO:sub(Other),tot:sub([...MMF,...Horizon,...Other])};
@@ -2037,7 +2043,8 @@ function buildLayerFromSB(){
   const sem = (SB.entries||[]).filter(e=>e.tipo_periodo==='semanal' && e.semana_inicio);
   const weeks = Array.from(new Set(sem.map(e=>e.semana_inicio))).sort();
   const rows = sem.map(e=>{
-    const row={p:e.persona, s:e.semana_inicio, proy:e.proyecto, e:toNum(e.forecast_horas), r:toNum(e.real_horas), f:normFondo(e.fond), v:e.vertical||'Otros'};
+    const hasReal=(e.real_horas!=null && String(e.real_horas).trim()!=='');
+    const row={p:e.persona, s:e.semana_inicio, proy:e.proyecto, e:toNum(e.forecast_horas), r:toNum(e.real_horas), ef:(hasReal?toNum(e.real_horas):toNum(e.forecast_horas)), hr:hasReal, f:normFondo(e.fond), v:e.vertical||'Otros'};
     if(toNum(e.forecast_horas)===0 && toNum(e.real_horas)>0) row.ro=true;
     if(e.comentario) row.com=e.comentario;
     if(e.comentario_real) row.comr=e.comentario_real;
