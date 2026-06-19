@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v92</title>
+<title>Abac Capital — Registro de horas (demo) · v107</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -312,6 +312,7 @@ input,select{font-family:inherit;font-size:15px}
 .two-eq{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:flex-start}
 .two-eq .pv-row{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 92px 34px;gap:9px}
 .two-eq .hr-head,.two-eq .hr-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 72px 66px;gap:8px}
+.two-eq .hr-head .lbl{white-space:nowrap;letter-spacing:0}
 .totalcard{display:flex;justify-content:space-between;align-items:center}
 .totalcard .trow{display:flex;align-items:center;gap:22px;margin-top:6px}
 .totalcard .big{font-size:36px;font-weight:600;color:var(--teal);letter-spacing:-.02em}
@@ -435,7 +436,8 @@ input,select{font-family:inherit;font-size:15px}
 .hr-row .est{font-size:13.5px}
 .minput{width:52px;padding:5px;font-size:13px}
 .two-eq{gap:16px}
-.two-eq .hr-head,.two-eq .hr-row{grid-template-columns:minmax(0,1fr) minmax(0,.9fr) 54px 54px;gap:6px}
+.two-eq .hr-head,.two-eq .hr-row{grid-template-columns:minmax(0,1fr) minmax(0,.8fr) 64px 56px;gap:6px}
+.two-eq .hr-head .lbl{font-size:10px}
 .two-eq .pv-row{grid-template-columns:minmax(0,1.2fr) minmax(0,.85fr) 80px 28px;gap:7px}
 .pv-row{margin-bottom:8px}
 .selwrap select{padding:9px 32px 9px 34px;font-size:13.5px}
@@ -694,6 +696,12 @@ function catInfo(name){
   const c=DATA.catalog.find(x=>x.nombre===name);
   return c?{f:c.fondo,v:c.vertical}:{f:'Otros',v:'Otros'};
 }
+/* Fondo CANÓNICO de un proyecto: manda el fondo del catálogo (projects.fund),
+   no el que llevara cada apunte. Si el proyecto no está en el catálogo, cae al del apunte. */
+function fundOf(name,fond){
+  const c=DATA.catalog.find(x=>x.nombre===name);
+  return c?c.fondo:normFondo(fond);
+}
 function setWeekRows(person,week,rows){
   DATA.rows=DATA.rows.filter(r=>!(r.p===person&&r.s===week));
   for(const r of rows){ r.hr=(r.r!=null); r.ef=(r.r!=null?(+r.r||0):(+r.e||0)); DATA.rows.push(r); }
@@ -898,7 +906,7 @@ function render_semana(){
       if(e.tipo_periodo==='semanal'&&e.semana_inicio){const d=pdate(e.semana_inicio);inc=(d>=hFrom&&d<=hTo);}
       else if(e.tipo_periodo==='mensual'){const mo=monthOfEntry(e);if(mo){const ms=new Date(mo.y,mo.m-1,1),me=new Date(mo.y,mo.m,0);inc=(ms<=hTo&&me>=hFrom);}}
       if(!inc)return;
-      const c=hfc(normFondo(e.fond));
+      const c=hfc(fundOf(e.proyecto,e.fond));
       const fc=toNum(e.forecast_horas);
       const hasReal=(e.real_horas!=null&&String(e.real_horas).trim()!=='');
       const ef=hasReal?toNum(e.real_horas):fc;
@@ -1028,7 +1036,7 @@ function render_resumen(){
       else if(!wkOnly && e.tipo_periodo==='mensual'){const mo=monthOfEntry(e);if(mo){const ms=new Date(mo.y,mo.m-1,1),me=new Date(mo.y,mo.m,0);inc=(ms<=B&&me>=A);md=ms;}}
       if(!inc)return;
       const rv=(e.real_horas!=null&&String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas);
-      (byP[e.persona]=byP[e.persona]||[]).push({proy:e.proyecto,f:normFondo(e.fond),e:rv,mk:(md?md.getFullYear()*12+md.getMonth():0)});
+      (byP[e.persona]=byP[e.persona]||[]).push({proy:e.proyecto,f:fundOf(e.proyecto,e.fond),e:rv,mk:(md?md.getFullYear()*12+md.getMonth():0)});
     });return byP;}
   const byP=effIn(from,to,isWeek);
   const rfP=name=>(byP[name]||[]).filter(r=>ff(r)&&fp(r));
@@ -1074,7 +1082,7 @@ function render_resumen(){
       <div class="hseg"><button class="${mode==='semana'?'on':''}" onclick="state.resRange='semana';state.anim={sel:'.card',stagger:true};render()">Semana</button><button class="${mode==='mes'?'on':''}" onclick="state.resRange='mes';state.anim={sel:'.card',stagger:true};render()">Último mes</button><button class="${mode==='3m'?'on':''}" onclick="state.resRange='3m';state.anim={sel:'.card',stagger:true};render()">Últimos 3 meses</button><button class="${mode==='6m'?'on':''}" onclick="state.resRange='6m';state.anim={sel:'.card',stagger:true};render()">Últimos 6 meses</button><button class="${mode==='ano'?'on':''}" onclick="state.resRange='ano';state.anim={sel:'.card',stagger:true};render()">Último año</button><button class="${mode==='hist'?'on':''}" onclick="state.resRange='hist';state.anim={sel:'.card',stagger:true};render()">Histórico</button></div>
       ${isWeek?`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-right:6px" ${state.resWeek<=minW?'disabled':''} onclick="state.resWeek=Math.max(Math.max(0,DATA.weeks.length-13),state.resWeek-1);state.anim={sel:'.card',stagger:true};render()" title="Semana anterior">‹</button>`+ddMount({variant:'pill',value:weekLong(wk),options:DATA.weeks.slice(minW).map(weekLong),onChange:v=>{state.resWeek=DATA.weeks.findIndex(s=>weekLong(s)===v);state.anim={sel:'.card',stagger:true};render();}})+`<button class="btn btn-outline btn-pill" style="padding:6px 12px;margin-left:6px" ${state.resWeek>=DATA.weeks.length-1?'disabled':''} onclick="state.resWeek=Math.min(DATA.weeks.length-1,state.resWeek+1);state.anim={sel:'.card',stagger:true};render()" title="Semana siguiente">›</button>`:''}
       ${ddMount({variant:'pill',value:state.resPerson||'Toda la plantilla',options:['Toda la plantilla',...DATA.people.filter(p=>p.activo!==false&&fichaOf(p)).map(p=>p.nombre)],onChange:v=>{state.resPerson=(v==='Toda la plantilla'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
-      ${ddMount({variant:'pill',value:state.resFund||'Todos los fondos',options:['Todos los fondos',...Array.from(new Set(DATA.rows.map(r=>r.f)))],onChange:v=>{state.resFund=(v==='Todos los fondos'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
+      ${ddMount({variant:'pill',value:state.resFund||'Todos los fondos',options:['Todos los fondos',...Array.from(new Set(DATA.catalog.map(c=>c.fondo)))],onChange:v=>{state.resFund=(v==='Todos los fondos'?'':v);state.anim={sel:'.card',stagger:true};render();}})}
       ${projMsel}
       <div class="spacer"></div>
     </div>
@@ -1508,7 +1516,7 @@ function rangeRows(fromStr,toStr){
     let include=false;
     if(e.tipo_periodo==='semanal' && e.semana_inicio){ const d=pdate(e.semana_inicio); include = (d>=a && d<=b); }
     else if(e.tipo_periodo==='mensual'){ const mo=monthOfEntry(e); if(mo){ const ms=new Date(mo.y,mo.m-1,1), me=new Date(mo.y,mo.m,0); include = (ms<=b && me>=a); } }
-    if(include){ const rv=(e.real_horas!=null && String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas); out.push({p:e.persona, proy:e.proyecto, e:toNum(e.forecast_horas), r:rv, f:normFondo(e.fond)}); }
+    if(include){ const rv=(e.real_horas!=null && String(e.real_horas).trim()!=='')?toNum(e.real_horas):toNum(e.forecast_horas); out.push({p:e.persona, proy:e.proyecto, e:toNum(e.forecast_horas), r:rv, f:fundOf(e.proyecto,e.fond)}); }
   });
   return out;
 }
@@ -1529,13 +1537,13 @@ function exportSeguimiento(){
   const wb=XLSX.utils.book_new();
 
   // ---- Hoja 1: lista de proyectos Podio ----
-  const pcols=['Project Name','Sector','Business Description','Status','Process Type','Fund'];
+  const pcols=['Project Name','Sector','Business Description','Status','Process Type','Fund','Vertical'];
   const projs=(SB.projects||[]).filter(p=>p.es_podio).slice().sort((a,b)=>cmpProj(a.name||'',b.name||''));
-  const prows=projs.map(p=>[p.name||'',p.sector||'',p.business_description||'',p.status||'',p.process_type||'',p.fund||'']);
+  const prows=projs.map(p=>[p.name||'',p.sector||'',p.business_description||'',p.status||'',p.process_type||'',p.fund||'',((p.vertical&&String(p.vertical).trim())||vertFromFund(p.fund))]);
   const wsP=XLSX.utils.aoa_to_sheet([pcols,...prows]);
   (function(){const rg=XLSX.utils.decode_range(wsP['!ref']);for(let R=rg.s.r;R<=rg.e.r;R++)for(let C=rg.s.c;C<=rg.e.c;C++){const a=XLSX.utils.encode_cell({r:R,c:C});if(!wsP[a])wsP[a]={t:'s',v:''};wsP[a].s=R===0?HEAD:((R%2)?RA:RB);}})();
-  wsP['!cols']=[26,16,60,14,16,10].map(w=>({wch:w}));
-  wsP['!autofilter']={ref:'A1:F1'};
+  wsP['!cols']=[26,16,60,14,16,10,16].map(w=>({wch:w}));
+  wsP['!autofilter']={ref:'A1:G1'};
   XLSX.utils.book_append_sheet(wb,wsP,'Proyectos Podio');
 
   // ---- Hojas por año ----
@@ -1543,7 +1551,9 @@ function exportSeguimiento(){
     let sem='-',wk='',mi=mesIdx(e.mes);
     if(e.tipo_periodo==='semanal'&&e.semana_inicio){const d=pdate(e.semana_inicio);sem=('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();wk=String(e.semana_inicio);if(mi<0)mi=d.getMonth();}
     const mes=(mi>=0?mesEs[mi]:(e.mes||''));
-    return {mi:(mi>=0?mi:11),wk,persona:e.persona||'',row:[e.persona||'',e.criterio||'',mes,sem,e.proyecto_apuntado||e.proyecto||'',e.proyecto||'',numv(e.forecast_horas),numv(e.real_horas),e.fond||'',e.vertical||'']};
+    const ci=DATA.catalog.find(x=>x.nombre===e.proyecto);
+    const fEx=ci?ci.fondo:(e.fond||''), vEx=ci?ci.vertical:(e.vertical||'');
+    return {mi:(mi>=0?mi:11),wk,persona:e.persona||'',row:[e.persona||'',e.criterio||'',mes,sem,e.proyecto_apuntado||e.proyecto||'',e.proyecto||'',numv(e.forecast_horas),numv(e.real_horas),fEx,vEx]};
   }
   const cols=['Persona','Criterio','Mes','Semanas','Proyecto','Proyecto Revisado','Estimación','Real','Fondo','Vertical'];
   const qLab=['Ene–Mar','Abr–Jun','Jul–Sep','Oct–Dic'];
@@ -2032,7 +2042,7 @@ function rebuildCatalog(){
     id:p.id,
     nombre:p.name,
     fondo:normFondo(p.fund),
-    vertical:vertFromFund(p.fund),
+    vertical:((p.vertical&&String(p.vertical).trim())||vertFromFund(p.fund)),
     status:p.status||'',
     horas:Math.round(horas[p.name]||0),
     year:(years[p.name]&&years[p.name].has('2026'))?'2026':((years[p.name]&&years[p.name].size)?'2025':''),
@@ -2067,7 +2077,7 @@ function buildLayerFromSB(){
   const weeks = Array.from(new Set(sem.map(e=>e.semana_inicio))).sort();
   const rows = sem.map(e=>{
     const hasReal=(e.real_horas!=null && String(e.real_horas).trim()!=='');
-    const row={p:e.persona, s:e.semana_inicio, proy:e.proyecto, e:toNum(e.forecast_horas), r:toNum(e.real_horas), ef:(hasReal?toNum(e.real_horas):toNum(e.forecast_horas)), hr:hasReal, f:normFondo(e.fond), v:e.vertical||'Otros'};
+    const row={p:e.persona, s:e.semana_inicio, proy:e.proyecto, e:toNum(e.forecast_horas), r:toNum(e.real_horas), ef:(hasReal?toNum(e.real_horas):toNum(e.forecast_horas)), hr:hasReal, f:fundOf(e.proyecto,e.fond), v:e.vertical||'Otros'};
     if(toNum(e.forecast_horas)===0 && toNum(e.real_horas)>0) row.ro=true;
     if(e.comentario) row.com=e.comentario;
     if(e.comentario_real) row.comr=e.comentario_real;
