@@ -1605,6 +1605,7 @@ function openGuide(){
 }
 /* ===== Constructor XLSX propio (zoom/cuadrícula/márgenes) ===== */
 // ===== Constructor XLSX puro (sin librerías): controla zoom, cuadrícula, anchos, estilos =====
+// ===== Constructor XLSX puro (sin librerías): controla zoom, cuadrícula, anchos, estilos =====
 const CRCT=(function(){const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 function crc32(buf){let crc=-1;for(let i=0;i<buf.length;i++)crc=(crc>>>8)^CRCT[(crc^buf[i])&0xff];return (crc^-1)>>>0;}
 function zipStore(files){
@@ -1634,38 +1635,35 @@ function colLetter(c){let s='';c++;while(c>0){const m=(c-1)%26;s=String.fromChar
 // estilos fijos
 function stylesXML(){
   const fonts=[
-    '<font><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>',                         //0 base
-    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>',                        //1 blanco bold (banda)
-    '<font><i/><sz val="9"/><color rgb="FF555555"/><name val="Arial"/></font>',                         //2 gris italic (Forecast/Actual)
-    '<font><b/><u/><sz val="10"/><color rgb="FF0A2150"/><name val="Arial"/></font>',                    //3 navy bold underline (grupo)
-    '<font><b/><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>',                        //4 negro bold
-    '<font><sz val="10"/><color rgb="FF1F4FD6"/><name val="Arial"/></font>',                            //5 azul (proyecto)
-    '<font><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>'                             //6 negro normal
+    '<font><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>',
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>',
+    '<font><i/><sz val="9"/><color rgb="FF555555"/><name val="Arial"/></font>',
+    '<font><b/><u/><sz val="10"/><color rgb="FF0A2150"/><name val="Arial"/></font>',
+    '<font><b/><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>',
+    '<font><sz val="10"/><color rgb="FF1F4FD6"/><name val="Arial"/></font>',
+    '<font><sz val="10"/><color rgb="FF1A1C1B"/><name val="Arial"/></font>'
   ];
   const fills=[
     '<fill><patternFill patternType="none"/></fill>',
     '<fill><patternFill patternType="gray125"/></fill>',
-    '<fill><patternFill patternType="solid"><fgColor rgb="FF0A2150"/></patternFill></fill>',            //2 navy
-    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF9C0"/></patternFill></fill>'             //3 amarillo
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF0A2150"/></patternFill></fill>',
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF9C0"/></patternFill></fill>'
   ];
-  const thin='<left style="thin"><color rgb="FFEAE3A0"/></left><right style="thin"><color rgb="FFEAE3A0"/></right><top style="thin"><color rgb="FFEAE3A0"/></top><bottom style="thin"><color rgb="FFEAE3A0"/></bottom><diagonal/>';
-  const borders=['<border><left/><right/><top/><bottom/><diagonal/></border>','<border>'+thin+'</border>'];
-  // cellXfs
+  const borders=['<border><left/><right/><top/><bottom/><diagonal/></border>'];
   const al=(h,v)=>'<alignment'+(h?' horizontal="'+h+'"':'')+(v?' vertical="'+v+'"':'')+'/>';
-  const xf=(f,fl,b,h,v)=>'<xf numFmtId="0" fontId="'+f+'" fillId="'+fl+'" borderId="'+b+'" xfId="0" applyFont="1" applyFill="1" applyBorder="1"'+((h||v)?' applyAlignment="1">'+al(h,v)+'</xf>':'/>');
+  const xf=(fo,fl,h,v)=>'<xf numFmtId="0" fontId="'+fo+'" fillId="'+fl+'" borderId="0" xfId="0" applyFont="1" applyFill="1"'+((h||v)?' applyAlignment="1">'+al(h,v)+'</xf>':'/>');
   const cellXfs=[
-    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>',  //0 default
-    xf(1,2,0,'left','center'),  //1 banner
-    xf(1,2,1,'center','center'),//2 code
-    xf(2,3,1,'right',null),     //3 FA
-    xf(0,3,1,null,null),        //4 FA blank (amarillo)
-    xf(3,3,1,'left',null),      //5 grupo label
-    xf(4,3,1,'right',null),     //6 grupo num
-    xf(5,3,1,'left',null),      //7 proyecto label
-    xf(6,3,1,'right',null),     //8 proyecto num
-    xf(4,3,1,'left',null),      //9 total label
-    xf(4,3,1,'right',null),     //10 total num
-    xf(0,3,1,null,null)         //11 amarillo vacio
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>', //0 default blanco
+    xf(1,2,'left','center'),   //1 banner navy
+    xf(1,2,'center','center'), //2 code navy
+    xf(2,0,'right',null),      //3 forecast/actual (blanco)
+    xf(3,0,'left',null),       //4 grupo label (blanco)
+    xf(4,0,'right',null),      //5 grupo num (blanco)
+    xf(5,3,'left',null),       //6 proyecto label (amarillo)
+    xf(6,3,'right',null),      //7 proyecto num (amarillo)
+    xf(4,0,'left',null),       //8 total label (blanco)
+    xf(4,0,'right',null),      //9 total num (blanco)
+    xf(0,3,null,null)          //10 amarillo vacio
   ];
   return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'+
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
@@ -1679,7 +1677,7 @@ function stylesXML(){
 }
 
 // estilos por nombre -> indice
-const ST={banner:1,code:2,fa:3,fablank:4,grp:5,grpN:6,proj:7,projN:8,tot:9,totN:10,yel:11};
+const ST={banner:1,code:2,fa:3,grp:4,grpN:5,proj:6,projN:7,tot:8,totN:9,yel:10};
 
 // construye la hoja staffing. spec={title, persons:[{code,MMF,Horizon,Other,subM,subH,subO,tot}], secM,secH,secO, zoom}
 function buildStaffing(spec){
@@ -1700,7 +1698,7 @@ function buildStaffing(spec){
     const cs=1+j*stride; // primera col del bloque (deja col0 de margen)
     if(j===0){put(rBan,cs,spec.title,'s',ST.banner);S[rBan][cs+1]=ST.banner;S[rBan][cs+2]=ST.banner;merges.push([rBan,cs,rBan,cs+2]);}
     put(rCode,cs,d.code,'s',ST.code);S[rCode][cs+1]=ST.code;S[rCode][cs+2]=ST.code;merges.push([rCode,cs,rCode,cs+2]);
-    S[rFA][cs]=ST.fablank;put(rFA,cs+1,'Forecast','s',ST.fa);put(rFA,cs+2,'Actual','s',ST.fa);
+    put(rFA,cs+1,'Forecast','s',ST.fa);put(rFA,cs+2,'Actual','s',ST.fa);
     const groups=[{lbl:'MMF',hr:rMh,r0:rM0,arr:d.MMF,sub:d.subM,n:secM},{lbl:'Horizon',hr:rHh,r0:rH0,arr:d.Horizon,sub:d.subH,n:secH},{lbl:'Other',hr:rOh,r0:rO0,arr:d.Other,sub:d.subO,n:secO}];
     groups.forEach(g=>{
       put(g.hr,cs,g.lbl,'s',ST.grp);put(g.hr,cs+1,g.sub.f,'n',ST.grpN);put(g.hr,cs+2,g.sub.a,'n',ST.grpN);
@@ -1726,7 +1724,8 @@ function buildStaffing(spec){
   for(let r=0;r<nRows;r++){
     let ht='';
     if(r===rBan)ht=' ht="18" customHeight="1"';
-    else if(r===rCode)ht=' ht="20" customHeight="1"';
+    else if(r===rGap)ht=' ht="6.75" customHeight="1"';
+    else if(r===rCode)ht=' ht="20.1" customHeight="1"';
     let rowx='<row r="'+(r+1)+'"'+ht+'>';
     for(let c=0;c<nCols;c++){
       const s=S[r][c],v=V[r][c],t=T[r][c];
