@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v107</title>
+<title>Abac Capital — Registro de horas (demo) · v110</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -102,6 +102,7 @@ input,select{font-family:inherit;font-size:15px}
 .hr-head>div{text-align:right}.hr-head>div:first-child{text-align:left}.hr-head>div:nth-child(2){text-align:left}.hr-head>div:nth-child(3){text-align:center}
 .hr-row .hrcom{border:1px solid var(--inputborder);border-radius:8px;background:var(--fill);color:var(--text);font-family:inherit;font-size:13px;padding:8px 10px;width:100%}
 .hr-row .hrcom::placeholder{color:var(--gray)}
+.minput::placeholder{color:var(--gray)}
 .hr-row .hrcom:focus{outline:none;border-color:var(--teal)}
 .hr-row.added{row-gap:0}
 .hr-row .rowdel-b{grid-column:1/-1;justify-self:end;display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--gray);font-size:12px;padding:6px 0 0;margin-top:2px}
@@ -722,14 +723,14 @@ function saveReales(){
     const idx=existing.findIndex((x,i)=>!used[i]&&x.proy===it.proy);
     if(idx>-1){
       used[idx]=true; const b=existing[idx];
-      const row={p:person,s:prevWeek,proy:it.proy,e:(b.ro?0:(b.e||0)),r:(+it.real||0),f:ci.f,v:ci.v};
+      const row={p:person,s:prevWeek,proy:it.proy,e:(b.ro?0:(b.e||0)),r:(it.real==null||it.real===''?null:(+it.real||0)),f:ci.f,v:ci.v};
       if(b.ro||it.ro) row.ro=true;
       if(b.com) row.com=b.com;
       if(it.com) row.comr=it.com;
       else if(b.comr) row.comr=b.comr;
       out.push(row);
     } else {
-      const row={p:person,s:prevWeek,proy:it.proy,e:0,r:(+it.real||0),f:ci.f,v:ci.v,ro:true};
+      const row={p:person,s:prevWeek,proy:it.proy,e:0,r:(it.real==null||it.real===''?null:(+it.real||0)),f:ci.f,v:ci.v,ro:true};
       if(it.com) row.comr=it.com;
       out.push(row);
     }
@@ -867,13 +868,13 @@ function render_semana(){
         <div class="pname">${ddProj(r.proy,v=>{state.reales[i].proy=v;})}</div>
         <input class="hrcom" placeholder="Comentario (add-on, exit…)" value="${esc(r.com||'')}" onchange="state.reales[${i}].com=this.value">
         <div class="est">0h</div>
-        <div class="realwrap"><input class="minput" value="${r.real}" onchange="state.reales[${i}].real=+this.value;updRealesTotal(1)"></div>
+        <div class="realwrap"><input class="minput" placeholder="—" value="${(r.real==null||r.real==='')?'':r.real}" onchange="var v=this.value.trim();state.reales[${i}].real=(v===''?null:+v);updRealesTotal(1)"></div>
         <button class="rowdel-b" onclick="state.reales.splice(${i},1);state.anim={sel:'.hr-row',stagger:0};render()">${I.trash}<span>Quitar</span></button></div>`;
     }
     return `<div class="hr-row"><div class="pname">${esc(r.proy)}</div>
       <input class="hrcom" placeholder="Comentario (add-on, exit…)" value="${esc(r.com||'')}" onchange="state.reales[${i}].com=this.value">
       <div class="est">${r.est}h</div>
-      <div class="realwrap"><input class="minput" value="${r.real}" onchange="state.reales[${i}].real=+this.value;updRealesTotal(1)"></div></div>`;
+      <div class="realwrap"><input class="minput" placeholder="—" value="${(r.real==null||r.real==='')?'':r.real}" onchange="var v=this.value.trim();state.reales[${i}].real=(v===''?null:+v);updRealesTotal(1)"></div></div>`;
   }).join('')
     || `<div class="hr-row"><div class="pname muted">Sin registros esa semana</div><div></div><div></div><div></div></div>`;
   const pvRows=state.prevision.map((r,i)=>`<div class="pv-row">
@@ -883,7 +884,7 @@ function render_semana(){
       <button class="trash" onclick="state.prevision.splice(${i},1);state.anim={sel:'.pv-row',stagger:0};render()">${I.trash}</button>
     </div>`).join('');
   const cw=DATA.weeks[state.consulta];
-  const HFCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};
+  const HFCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','AS3':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};
   const hfc=f=>HFCAT[f]||'Other';
   const hcats={MMF:{},Horizon:{},Other:{}};
   let histSub;
@@ -936,7 +937,7 @@ function render_semana(){
         <div class="card-head"><div><div class="t">Horas reales</div><div class="s">${prevw?'Cierre — '+weekLong(prevw):'Cierre de la semana anterior'}</div></div><span class="badge read">Lectura</span></div>
         <div class="hr-head"><div class="lbl">Proyecto</div><div class="lbl">Comentario</div><div class="lbl">Estimadas</div><div class="lbl">Reales</div></div>
         ${realesRows}
-        <button class="addlink" onclick="state.reales.push({proy:(state.catalog[0]||{}).nombre||'',est:0,real:0,added:true});state.anim={sel:'.hr-row',stagger:0};render()">${I.plus} Añadir proyecto</button>
+        <button class="addlink" onclick="state.reales.push({proy:(state.catalog[0]||{}).nombre||'',est:0,real:null,added:true});state.anim={sel:'.hr-row',stagger:0};render()">${I.plus} Añadir proyecto</button>
         <div class="cardfoot">
           <div class="tl">
             <div class="lbl">Total real</div>
@@ -1438,7 +1439,7 @@ function tablaNav(d){const W=DATA.weeks;state.tablaWeek=Math.min(W.length-1,Math
 function semanaNav(d){state.week=Math.max(0,Math.min(LAST+1,state.week+d));loadSemana();state.anim={sel:'.card',stagger:true};render();}
 function render_tabla(){
   const W=DATA.weeks;
-  const FCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};
+  const FCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','AS3':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};
   const fcat=f=>FCAT[f]||'Other';
   const inits=n=>n.split(/\s+/).map(w=>w[0]).join('').toUpperCase().slice(0,3);
   const fmtDMY=s=>{const d=pdate(s);return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();};
@@ -1453,8 +1454,8 @@ function render_tabla(){
   const data=DATA.people.filter(p=>roleOf(p)==='Trabajador').map(p=>{
     const rows=weeks.flatMap(w=>rowsFor(p.nombre,w));
     const cats={MMF:{},Horizon:{},Other:{}};
-    rows.forEach(r=>{const c=fcat(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=EF(r);});
-    const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
+    rows.forEach(r=>{const c=fcat(r.f);const o=(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0,aHas:false});o.f+=r.e;if(r.hr){o.a+=(+r.r||0);o.aHas=true;}});
+    const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a,aHas:o.aHas})).sort((x,y)=>(y.f+y.a)-(x.f+x.a));
     const MMF=arr('MMF'),Horizon=arr('Horizon'),Other=arr('Other');
     const sub=a=>a.reduce((s,x)=>({f:s.f+x.f,a:s.a+x.a}),{f:0,a:0});
     return {p,n:rows.length,MMF,Horizon,Other,subM:sub(MMF),subH:sub(Horizon),subO:sub(Other),tot:sub([...MMF,...Horizon,...Other])};
@@ -1463,7 +1464,7 @@ function render_tabla(){
   const maxH=Math.max(1,...data.map(d=>d.Horizon.length));
   const maxO=Math.max(1,...data.map(d=>d.Other.length));
   const catBlock=(name,a,sub,maxR)=>{
-    let rows=a.map(x=>`<div class="xl-row"><span class="n" data-tip="${esc(x.proy)} · ${x.f}h prev · ${x.a}h real">${esc(x.proy)}</span><span class="v">${x.f}</span><span class="v">${x.a}</span></div>`).join('');
+    let rows=a.map(x=>`<div class="xl-row"><span class="n" data-tip="${esc(x.proy)} · ${x.f}h prev · ${x.aHas?x.a:0}h real">${esc(x.proy)}</span><span class="v">${x.f||''}</span><span class="v">${x.aHas?x.a:''}</span></div>`).join('');
     for(let i=a.length;i<maxR;i++)rows+=`<div class="xl-row empty"></div>`;
     return `<div class="xl-cat"><span>${name}</span><span class="v">${sub.f}</span><span class="v">${sub.a}</span></div>${rows}`;
   };
@@ -1764,7 +1765,7 @@ function buildStaffing(spec){
     groups.forEach(g=>{
       put(g.hr,cs,g.lbl,'s',ST.grp);put(g.hr,cs+1,g.sub.f,'n',ST.grpN);put(g.hr,cs+2,g.sub.a,'n',ST.grpN);
       for(let i=0;i<g.n;i++){const r=g.r0+i;const x=g.arr[i];
-        if(x){put(r,cs,x.proy,'s',ST.proj);put(r,cs+1,x.f,'n',ST.projN);if(x.a)put(r,cs+2,x.a,'n',ST.projN);else{S[r][cs+2]=ST.projN;}}
+        if(x){put(r,cs,x.proy,'s',ST.proj);if(x.f)put(r,cs+1,x.f,'n',ST.projN);else{S[r][cs+1]=ST.projN;}if(x.aHas)put(r,cs+2,x.a,'n',ST.projN);else{S[r][cs+2]=ST.projN;}}
         else{S[r][cs]=ST.yel;S[r][cs+1]=ST.yel;S[r][cs+2]=ST.yel;}
       }
     });
@@ -1830,7 +1831,7 @@ function buildWorkbookXlsx(spec){
   return zipStore(files);
 }
 function exportTabla(mode){
-  const W=DATA.weeks;const FCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};const fc=f=>FCAT[f]||'Other';
+  const W=DATA.weeks;const FCAT={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','AS3':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};const fc=f=>FCAT[f]||'Other';
   const fmt=s=>{const d=pdate(s);return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();};
   let weeks,title,rowsByPerson=null;
   if(mode==='mes'){weeks=W.slice(-4);title='Ultimo mes';}
@@ -1849,8 +1850,8 @@ function exportTabla(mode){
   const esc2=s=>(''+s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
   const data=DATA.people.filter(p=>roleOf(p)==='Trabajador').map(p=>{
     const rs = (mode==='custom') ? (rowsByPerson[p.nombre]||[]) : weeks.flatMap(w=>rowsFor(p.nombre,w));const cats={MMF:{},Horizon:{},Other:{}};
-    rs.forEach(r=>{const c=fc(r.f);(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0});cats[c][r.proy].f+=r.e;cats[c][r.proy].a+=EF(r);});
-    const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a})).sort((x,y)=>y.f-x.f);
+    rs.forEach(r=>{const c=fc(r.f);const o=(cats[c][r.proy]=cats[c][r.proy]||{f:0,a:0,aHas:false});o.f+=r.e;if(r.hr){o.a+=(+r.r||0);o.aHas=true;}});
+    const arr=c=>Object.entries(cats[c]).map(([proy,o])=>({proy,f:o.f,a:o.a,aHas:o.aHas})).sort((x,y)=>(y.f+y.a)-(x.f+x.a));
     const MMF=arr('MMF'),Horizon=arr('Horizon'),Other=arr('Other');const sub=a=>a.reduce((s,x)=>({f:s.f+x.f,a:s.a+x.a}),{f:0,a:0});
     return {p,n:rs.length,MMF,Horizon,Other,subM:sub(MMF),subH:sub(Horizon),subO:sub(Other),tot:sub([...MMF,...Horizon,...Other])};
   }).filter(d=>d.n>0);
@@ -2010,10 +2011,10 @@ let SB={loaded:false, projects:[], people:[], entries:[], horas:{}};
 function normFondo(f){
   if(!f) return 'Otros';
   const s=String(f).trim();
-  const m={'as1':'SICAR','as2':'Fons II','as3':'Horizon','sicar':'SICAR','fons ii':'Fons II','fonsii':'Fons II','horizon':'Horizon','office':'Office','oficina':'Office','otros':'Otros','other':'Otros','abac iii':'Abac III','deal gen':'Deal Gen','dealgen':'Deal Gen','deal generation':'Deal Gen'};
+  const m={'as1':'SICAR','as2':'Fons II','as3':'AS3','sicar':'SICAR','fons ii':'Fons II','fonsii':'Fons II','horizon':'Horizon','office':'Office','oficina':'Office','otros':'Otros','other':'Otros','abac iii':'Abac III','deal gen':'Deal Gen','dealgen':'Deal Gen','deal generation':'Deal Gen'};
   return m[s.toLowerCase()] || s;
 }
-function vertFromFund(f){const k=normFondo(f).toLowerCase();const m={'horizon':'Impact','sicar':'Mid Market','fons ii':'Mid Market','deal gen':'Deal Gen','office':'Otros','otros':'Otros'};return m[k]||'Otros';}
+function vertFromFund(f){const k=normFondo(f).toLowerCase();const m={'horizon':'Impact','sicar':'Mid Market','fons ii':'Mid Market','as3':'Mid Market','deal gen':'Deal Gen','office':'Otros','otros':'Otros'};return m[k]||'Otros';}
 function toNum(x){ const n=parseFloat(x); return isNaN(n)?0:n; }
 
 /* trae todas las filas paginando de 1000 en 1000 (entries tiene >1000) */
@@ -2077,7 +2078,7 @@ function buildLayerFromSB(){
   const weeks = Array.from(new Set(sem.map(e=>e.semana_inicio))).sort();
   const rows = sem.map(e=>{
     const hasReal=(e.real_horas!=null && String(e.real_horas).trim()!=='');
-    const row={p:e.persona, s:e.semana_inicio, proy:e.proyecto, e:toNum(e.forecast_horas), r:toNum(e.real_horas), ef:(hasReal?toNum(e.real_horas):toNum(e.forecast_horas)), hr:hasReal, f:fundOf(e.proyecto,e.fond), v:e.vertical||'Otros'};
+    const row={p:e.persona, s:e.semana_inicio, proy:e.proyecto, e:toNum(e.forecast_horas), r:(e.real_horas==null||String(e.real_horas).trim()===''?null:toNum(e.real_horas)), ef:(hasReal?toNum(e.real_horas):toNum(e.forecast_horas)), hr:hasReal, f:fundOf(e.proyecto,e.fond), v:e.vertical||'Otros'};
     if(toNum(e.forecast_horas)===0 && toNum(e.real_horas)>0) row.ro=true;
     if(e.comentario) row.com=e.comentario;
     if(e.comentario_real) row.comr=e.comentario_real;
