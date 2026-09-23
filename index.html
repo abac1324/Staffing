@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v110</title>
+<title>Abac Capital — Registro de horas (demo) · v111</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1432,7 +1432,7 @@ function render_team(){
     <div class="tm-info-grid">
       <div class="tm-info"><div class="ic">${lock}</div><div class="k">Confidencialidad</div><div class="v">Acceso restringido. Cada persona solo ve las pestañas que tenga concedidas.</div></div>
       <div class="tm-info"><div class="ic">${sync}</div><div class="k">Última sincronización</div><div class="v">Catálogo de proyectos actualizado manualmente por el equipo de Operaciones.</div></div>
-      <div class="tm-info"><div class="ic">${shield}</div><div class="k">Cumplimiento</div><div class="v">Roles y accesos se guardan en Supabase. Login por nombre y contraseña (pruebas); se migrará a Entra ID.</div></div>
+      <div class="tm-info"><div class="ic">${shield}</div><div class="k">Cumplimiento</div><div class="v">Roles y accesos se guardan en Supabase. El acceso es con la cuenta de Microsoft de Abac (Entra ID).</div></div>
     </div>`;
 }
 function tablaNav(d){const W=DATA.weeks;state.tablaWeek=Math.min(W.length-1,Math.max(0,state.tablaWeek+d));render();}
@@ -1947,6 +1947,12 @@ async function linkEmail(name,email){
     if(!error){ const sp=SB.people.find(x=>x.nombre===name); if(sp)sp.email=email; }
   }
 }
+/* Entra ID manda el correo entero en preferred_username: de 'marc.vilches@abaccapital.com' saca 'Marc Vilches' */
+function nameFromEmail(e){
+  const loc=String(e||'').split('@')[0].replace(/[._\-+]+/g,' ').replace(/\d+/g,' ').trim();
+  if(!loc)return '';
+  return loc.split(/\s+/).filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+}
 async function provisionPerson(name,email){
   let nombre=name||email;
   if(sb&&SB.loaded){
@@ -1972,7 +1978,9 @@ async function checkAuthSession(){
   const email=((session.user.email)||'').toLowerCase();
   if(!email){ loginMsg('Tu cuenta de Microsoft no devolvió email (revisa el claim de email en Azure).'); return; }
   const meta=session.user.user_metadata||{};
-  const dispName=String(meta.full_name||meta.name||meta.preferred_username||email.split('@')[0]||'').trim()||email;
+  /* si Microsoft no da nombre real (manda el correo en preferred_username), se deriva del correo */
+  const rawName=String(meta.full_name||meta.name||meta.preferred_username||'').trim();
+  const dispName=(!rawName||rawName.indexOf('@')>=0) ? (nameFromEmail(email)||email) : rawName;
   let found=USERS.find(x=>(x.email||'').toLowerCase()===email);
   if(!found){
     // ¿existe ya esa persona (mismo nombre, sin email todavía)? -> enlazar, sin duplicar
