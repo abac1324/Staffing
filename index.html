@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v111</title>
+<title>Abac Capital — Registro de horas (demo) · v112</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -577,6 +577,9 @@ input,select{font-family:inherit;font-size:15px}
 .dd.status .dd-opt{display:flex;align-items:center}
 .rowdel{border:none;background:none;color:#EF4444;width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
 .rowdel:hover{background:rgba(239,68,68,.12)}
+.rowedit{border:none;background:none;color:var(--navy);width:36px;height:36px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s}
+.rowedit:hover{background:rgba(10,33,80,.10)}
+.rowedit:focus{outline:none}
 .btn-danger{background:#EF4444;color:#fff;border:1px solid #EF4444}
 .btn-danger:hover{background:#DC2626;border-color:#DC2626}
 .modal-sm{max-width:430px}
@@ -652,6 +655,7 @@ const I = {
   chev:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>',
   search:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>',
   trash:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+  edit:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   plus:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>',
   check:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg>',
   up:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8M21 7v6M21 7h-6"/></svg>',
@@ -1182,7 +1186,7 @@ function render_proyectos(){
           <div><span class="badge ${FBADGE[c.fondo]||'gray'}">${esc(c.fondo)}</span></div>
           <div>${esc(c.vertical)}</div>
           <div>${c.horas||0}h</div>
-          <div style="text-align:center"><button class="rowdel" title="Eliminar proyecto" onclick="askDelete(${idx})">${I.trash}</button></div>
+          <div style="text-align:center"><button class="rowedit" title="Editar proyecto" onclick="openEdit(${idx})">${I.edit}</button><button class="rowdel" title="Eliminar proyecto" onclick="askDelete(${idx})">${I.trash}</button></div>
         </div>`;}).join('')}
       <div class="pt-foot">
         <div>Mostrando ${list.length?state.page*per+1:0}-${Math.min(state.page*per+per,list.length)} de ${list.length} proyectos</div>
@@ -1206,6 +1210,47 @@ function openModal(){
       <button class="btn btn-primary btn-pill" onclick="createProj()">Crear proyecto</button></div></div>`;
   document.body.appendChild(div);
   hydrateDropdowns();
+}
+/* fondo -> seccion del Overview (misma tabla que usan Overview, Historial y el Excel) */
+const FCAT_G={'SICAR':'MMF','Fons II':'MMF','Abac III':'MMF','AS3':'MMF','Horizon':'Horizon','Office':'Other','Otros':'Other'};
+function catFromFund(f){return FCAT_G[normFondo(f)]||'Other';}
+function openEdit(idx){
+  const c=state.catalog[idx]; if(!c)return;
+  const fondos=Array.from(new Set(['SICAR','Fons II','AS3','Abac III','Horizon','Deal Gen','Office','Otros',...DATA.catalog.map(x=>x.fondo)].filter(Boolean)));
+  const verts=Array.from(new Set(['Mid Market','Impact','Deal Gen','Otros',...DATA.catalog.map(x=>x.vertical)].filter(Boolean)));
+  const fId=ddRegister({variant:'modal',value:c.fondo,options:fondos,onChange:v=>{const el=document.getElementById('m_cat');if(el)el.innerHTML='Con este fondo aparecerá en la sección <b>'+catFromFund(v)+'</b>.';}});
+  const eId=ddRegister({variant:'modal',value:c.vertical||vertFromFund(c.fondo),options:verts,onChange:()=>{}});
+  modalDD={f:fId,e:eId};
+  const div=document.createElement('div');div.className='overlay';div.id='ov';
+  div.onclick=e=>{if(e.target===div)closeModal();};
+  div.innerHTML=`<div class="modal">
+    <h3>Editar proyecto</h3>
+    <label><span class="lbl">Nombre del proyecto</span><input value="${esc(c.nombre)}" disabled title="El nombre enlaza con las horas ya apuntadas, por eso no se cambia desde aquí"></label>
+    <label><span class="lbl">Fondo</span><div class="dd" data-dd="${fId}"></div></label>
+    <label><span class="lbl">Estrategia</span><div class="dd" data-dd="${eId}"></div></label>
+    <p class="confirm-txt" id="m_cat">Con este fondo aparecerá en la sección <b>${catFromFund(c.fondo)}</b>.</p>
+    <div class="acts"><button class="btn btn-outline btn-pill" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary btn-pill" onclick="saveProj(${idx})">Guardar cambios</button></div></div>`;
+  document.body.appendChild(div);
+  hydrateDropdowns();
+}
+async function saveProj(idx){
+  const c=state.catalog[idx]; if(!c){closeModal();return;}
+  const fondo=DD[modalDD.f].value, estrategia=DD[modalDD.e].value;
+  if(normFondo(fondo)===c.fondo && estrategia===c.vertical){closeModal();return;}
+  if(sb && SB.loaded && c.id!=null){
+    try{
+      const {error}=await sb.from('projects').update({fund:fondo,vertical:estrategia}).eq('id',c.id);
+      if(error) throw new Error(error.message);
+      const sp=SB.projects.find(p=>p.id===c.id); if(sp){sp.fund=fondo;sp.vertical=estrategia;}
+    }catch(e){ console.error('update project',e); toast('No se pudo guardar el cambio: '+e.message); return; }
+  }
+  const apply=o=>{o.fondo=normFondo(fondo);o.vertical=estrategia;};
+  const nombre=c.nombre;
+  apply(c);
+  const gem=DATA.catalog.find(x=>(c.id!=null)?x.id===c.id:x.nombre===nombre); if(gem)apply(gem);
+  closeModal();state.anim={sel:'.pt-row',stagger:true};render();
+  toast('✓ '+nombre+': '+normFondo(fondo)+' · sección '+catFromFund(fondo));
 }
 function closeModal(){const o=document.getElementById('ov');if(o)o.remove();}
 function askDelete(idx){
