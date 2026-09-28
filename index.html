@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Abac Capital — Registro de horas (demo) · v112</title>
+<title>Abac Capital — Registro de horas (demo) · v113</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -1249,6 +1249,10 @@ async function saveProj(idx){
   const nombre=c.nombre;
   apply(c);
   const gem=DATA.catalog.find(x=>(c.id!=null)?x.id===c.id:x.nombre===nombre); if(gem)apply(gem);
+  /* las filas de horas llevan el fondo ya calculado; refrescarlas para que Overview
+     y el Excel reflejen el cambio sin tener que recargar la pagina */
+  const nf=normFondo(fondo);
+  (DATA.rows||[]).forEach(r=>{ if(r.proy===nombre) r.f=nf; });
   closeModal();state.anim={sel:'.pt-row',stagger:true};render();
   toast('✓ '+nombre+': '+normFondo(fondo)+' · sección '+catFromFund(fondo));
 }
@@ -2213,11 +2217,15 @@ async function loadSupabaseData(){
       fetchEntries()
     ]);
     SB.projects=projects; SB.people=people; SB.entries=entries;
+    /* OJO AL ORDEN: el catalogo va PRIMERO. buildLayerFromSB() fija el fondo de cada fila con
+       fundOf(), que busca el proyecto en DATA.catalog; si el catalogo aun no esta construido no
+       lo encuentra y se queda con el fondo copiado en el apunte (entries.fond), que puede estar
+       desfasado. Hasta la v112 estaba al reves y por eso cambiar el fondo de un proyecto no
+       recolocaba sus horas en Overview. */
+    rebuildCatalog();
     // construir capa en locales y validar ANTES de tocar DATA
     const L=buildLayerFromSB();
     diag='projects='+projects.length+' · people='+people.length+' · entries='+entries.length+' · semanales='+L.semCount+' · semanas='+L.weeks.length;
-    // catalogo de Proyectos es independiente y seguro
-    rebuildCatalog();
     if(!L.weeks.length || !L.rows.length){
       sbBanner('⚠ Conecté pero no obtuve filas semanales. Diagnóstico: '+diag+'. Recarga la página; si persiste, mándame esta línea.','#B91C1C');
       return;
